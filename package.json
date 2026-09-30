@@ -1,0 +1,21 @@
+{
+  "name": "encore",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm run dev -w @encore/api\" \"npm run dev -w @encore/web\"",
+    "mobile": "npm run start -w @encore/mobile",
+    "build": "npm run build -w @encore/api && npm run build -w @encore/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "npm run db:generate -w @encore/api"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "concurrently": "^10.0.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

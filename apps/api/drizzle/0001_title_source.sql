@@ -1,0 +1,1 @@
+ALTER TABLE "titles" ADD COLUMN "source" text DEFAULT 'demo' NOT NULL;

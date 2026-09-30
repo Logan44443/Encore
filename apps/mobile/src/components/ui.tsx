@@ -1,0 +1,191 @@
+import { ApiError } from "@encore/shared";
+import { useRouter } from "expo-router";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../auth";
+import { errorMessage } from "../format";
+import { colors } from "../theme";
+
+export function Screen({
+  children,
+  scroll = true,
+  padded = true,
+  scrollRef,
+  refreshControl,
+}: {
+  children: React.ReactNode;
+  scroll?: boolean;
+  padded?: boolean;
+  scrollRef?: React.Ref<ScrollView>;
+  refreshControl?: React.ComponentProps<typeof ScrollView>["refreshControl"];
+}) {
+  const insets = useSafeAreaInsets();
+  const pad: ViewStyle = padded ? { padding: 16, paddingBottom: insets.bottom + 28, gap: 16 } : { flex: 1 };
+  if (!scroll) return <View style={[{ flex: 1, backgroundColor: colors.ink }, pad]}>{children}</View>;
+  return (
+    <ScrollView
+      ref={scrollRef}
+      style={{ flex: 1, backgroundColor: colors.ink }}
+      contentContainerStyle={pad}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={refreshControl}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+export function Loading() {
+  return (
+    <View style={styles.center}>
+      <ActivityIndicator color={colors.brand} />
+    </View>
+  );
+}
+
+export function ErrorText({ error }: { error: unknown }) {
+  const message = errorMessage(error);
+  if (!message) return null;
+  return <Text style={styles.error}>{message}</Text>;
+}
+
+export function Empty({ title, body }: { title: string; body?: string }) {
+  return (
+    <View style={styles.empty}>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      {body ? <Text style={styles.muted}>{body}</Text> : null}
+    </View>
+  );
+}
+
+export function H1({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.h1}>{children}</Text>;
+}
+
+export function Muted({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.muted}>{children}</Text>;
+}
+
+export function SectionTitle({ children, action }: { children: string; action?: React.ReactNode }) {
+  return (
+    <View style={styles.rowBetween}>
+      <Text style={styles.h2}>{children}</Text>
+      {action}
+    </View>
+  );
+}
+
+export function Button({
+  label,
+  onPress,
+  disabled,
+  tone = "primary",
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  tone?: "primary" | "ghost" | "danger";
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={[styles.btn, tone === "primary" ? styles.btnPrimary : tone === "danger" ? styles.btnDanger : styles.btnGhost, disabled && styles.disabled]}
+    >
+      <Text style={[styles.btnLabel, tone === "ghost" && { color: colors.text }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export function Chip({
+  label,
+  count,
+  active,
+  onPress,
+}: {
+  label: string;
+  count?: number;
+  active?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+      <Text style={[styles.chipLabel, active && { color: colors.brand }]}>
+        {label}
+        {count != null ? <Text style={styles.chipCount}> {count}</Text> : null}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function Field({ label, ...props }: { label: string } & TextInputProps) {
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput placeholderTextColor={colors.muted} style={styles.input} {...props} />
+    </View>
+  );
+}
+
+export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  return <View style={[styles.card, style]}>{children}</View>;
+}
+
+export function AuthGate({ children }: { children: React.ReactNode }) {
+  const { user, ready } = useAuth();
+  const router = useRouter();
+  if (!ready) return <Loading />;
+  if (!user) {
+    return (
+      <Screen>
+        <H1>Sign in to continue</H1>
+        <Muted>Your rankings, watchlist, and live shows stay on your account.</Muted>
+        <Button label="Sign in" onPress={() => router.push("/login")} />
+        <Button label="Create an account" tone="ghost" onPress={() => router.push("/register")} />
+      </Screen>
+    );
+  }
+  return <>{children}</>;
+}
+
+export function ScoreBadge({ score, color, size = 44 }: { score: number; color: string; size?: number }) {
+  return (
+    <View style={[styles.badge, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
+      <Text style={{ color, fontWeight: "800", fontSize: size > 60 ? 28 : 14 }}>{score.toFixed(1)}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  center: { flex: 1, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" },
+  error: { color: colors.disliked, fontSize: 13 },
+  empty: { borderWidth: 1, borderColor: colors.line, borderRadius: 16, padding: 20, backgroundColor: colors.panel, gap: 6 },
+  emptyTitle: { color: colors.text, fontWeight: "700" },
+  muted: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  h1: { color: colors.text, fontSize: 28, fontWeight: "900", letterSpacing: -0.4 },
+  h2: { color: colors.text, fontSize: 17, fontWeight: "800" },
+  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  btn: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, alignItems: "center" },
+  btnPrimary: { backgroundColor: colors.brand2 },
+  btnGhost: { backgroundColor: colors.panel2, borderWidth: 1, borderColor: colors.line },
+  btnDanger: { backgroundColor: "transparent" },
+  btnLabel: { color: "white", fontWeight: "700" },
+  disabled: { opacity: 0.5 },
+  chip: { borderRadius: 999, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel2, paddingHorizontal: 12, paddingVertical: 8 },
+  chipActive: { borderColor: colors.brand, backgroundColor: "rgba(245,158,11,0.12)" },
+  chipLabel: { color: colors.zinc, fontSize: 13, fontWeight: "600" },
+  chipCount: { fontSize: 10, fontWeight: "600" },
+  fieldLabel: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.panel2,
+    color: colors.text,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  card: { backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 8 },
+  badge: { borderWidth: 2, alignItems: "center", justifyContent: "center" },
+});

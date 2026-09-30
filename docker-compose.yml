@@ -1,0 +1,17 @@
+# Optional: a real Postgres for local production-like testing.
+#   docker compose up -d
+#   then set DATABASE_URL=postgres://encore:encore@localhost:5432/encore in apps/api/.env
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: encore
+      POSTGRES_PASSWORD: encore
+      POSTGRES_DB: encore
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

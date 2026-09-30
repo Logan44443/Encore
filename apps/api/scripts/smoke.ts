@@ -1,0 +1,179 @@
+/**
+ * End-to-end smoke test against a running API (demo catalog is enough).
+ *   API_URL=http://localhost:4000 npx tsx scripts/smoke.ts
+ */
+import assert from "node:assert/strict";
+import { createApiClient } from "@encore/shared";
+
+const baseUrl = process.env.API_URL ?? "http://localhost:4000";
+let token: string | null = null;
+const api = createApiClient({ baseUrl, getToken: () => token });
+
+const suffix = Math.random().toString(36).slice(2, 8);
+const auth = await api.auth.register({
+  email: `smoke_${suffix}@example.com`,
+  username: `smoke_${suffix}`,
+  password: "correct-horse",
+});
+token = auth.token;
+assert.equal((await api.auth.me()).user.username, `smoke_${suffix}`);
+
+const THRILLER = 53;
+// Rank three thrillers in the "liked" tier: Se7en > Prisoners > Gone Girl
+const a = await api.entries.create({ mediaType: "movie", tmdbId: 146233, genreId: THRILLER, tier: "liked", aboveEntryId: null });
+const b = await api.entries.create({ mediaType: "movie", tmdbId: 807, genreId: THRILLER, tier: "liked", aboveEntryId: null });
+const c = await api.entries.create({
+  mediaType: "movie",
+  tmdbId: 210577,
+  genreId: THRILLER,
+  tier: "liked",
+  aboveEntryId: a.entry.id,
+});
+assert.equal(c.rank, 3);
+
+const { candidates } = await api.entries.candidates({ mediaType: "movie", genreId: THRILLER, tier: "liked" });
+assert.deepEqual(
+  candidates.map((x) => x.title.name),
+  ["Se7en", "Prisoners", "Gone Girl"],
+);
+assert.equal(candidates[0].score, 10);
+console.log("thriller ranking:", candidates.map((x) => `${x.title.name} ${x.score}`).join(", "));
+
+// A disliked thriller must score below every liked one
+const d = await api.entries.create({ mediaType: "movie", tmdbId: 419430, genreId: THRILLER, tier: "disliked", aboveEntryId: null });
+assert.ok(d.entry.score <= 3.4);
+assert.equal(d.rank, 4);
+
+// Move Gone Girl to the top
+const moved = await api.entries.rerank(c.entry.id, { genreId: THRILLER, tier: "liked", aboveEntryId: null });
+assert.equal(moved.rank, 1);
+assert.equal(moved.entry.score, 10);
+
+// Duplicate is rejected
+await assert.rejects(
+  api.entries.create({ mediaType: "movie", tmdbId: 807, genreId: THRILLER, tier: "fine", aboveEntryId: null }),
+  /already ranked/,
+);
+
+// TV with favourite / least favourite episodes
+const { episodes } = await api.catalog.season(1396, 5);
+const bb = await api.entries.create({
+  mediaType: "tv",
+  tmdbId: 1396,
+  genreId: 18,
+  tier: "liked",
+  aboveEntryId: null,
+  review: "All-time great.",
+  favoriteEpisode: { season: 5, episode: episodes[13].episode, name: episodes[13].name },
+  leastFavoriteEpisode: { season: 3, episode: 10, name: "Fly" },
+});
+assert.equal(bb.entry.favoriteEpisode?.episode, 14);
+
+const title = await api.catalog.title("tv", 1396);
+assert.equal(title.myEntry?.id, bb.entry.id);
+
+await api.entries.remove(b.entry.id);
+const after = await api.entries.list({ mediaType: "movie", genreId: THRILLER });
+assert.equal(after.entries.length, 3);
+
+// Live show: headliner with setlist + a manually-added support act, at a located venue
+const { show } = await api.live.create({
+  kind: "concert",
+  date: "2025-11-14",
+  venue: { name: "Unipol Arena", city: "Bologna", country: "Italy", lat: 44.49, lng: 11.34 },
+  rating: 9.5,
+  liked: "Encore was unreal",
+  lineup: [
+    {
+      role: "headliner",
+      performer: { mbid: "a74b1b7f-71a5-4011-9441-d0b5e4122711", name: "Radiohead" },
+      songs: [
+        { title: "Let Down", reaction: "loved" },
+        { title: "Lucky", reaction: "liked" },
+        { title: "Karma Police", encore: true },
+      ],
+    },
+    { role: "support", performer: { name: `Local Opener ${suffix}` }, songs: [{ title: "Opening Song" }] },
+  ],
+});
+assert.equal(show.lineup.length, 2);
+assert.equal(show.lineup[0].songs.length, 3);
+assert.equal(show.lineup[0].songs[2].encore, true);
+assert.equal(show.lineup[1].performer.mbid, null);
+assert.equal(show.venue?.city, "Bologna");
+console.log("headliner photo:", show.lineup[0].performer.imageUrl ?? "(none — offline?)");
+
+const updated = await api.live.update(show.id, {
+  lineup: [{ role: "headliner", performer: show.lineup[0].performer, songs: [{ title: "Creep", reaction: "disliked" }] }],
+});
+assert.equal(updated.show.lineup.length, 1);
+assert.equal(updated.show.lineup[0].songs[0].title, "Creep");
+assert.equal(updated.show.venue?.name, "Unipol Arena");
+
+// Watchlist: movie, show, artist and festival; ranking / logging crosses items off
+const INTERSTELLAR = 157336;
+const wlMovie = await api.watchlist.add({ kind: "movie", tmdbId: INTERSTELLAR, note: "Rewatch in IMAX" });
+const again = await api.watchlist.add({ kind: "movie", tmdbId: INTERSTELLAR });
+assert.equal(again.item.id, wlMovie.item.id, "adding twice is idempotent");
+await api.watchlist.add({ kind: "tv", tmdbId: 66732 });
+await api.watchlist.add({
+  kind: "performer",
+  performer: { mbid: "ada7a83c-e3e1-40f1-93f9-3e73dbc9298a", name: "Arctic Monkeys" },
+});
+const wlFest = await api.watchlist.add({ kind: "festival", name: "Glastonbury", date: "2027-06-23", city: "Pilton", country: "UK" });
+assert.equal(wlFest.item.festival?.city, "Pilton");
+assert.equal((await api.watchlist.list()).items.length, 4);
+assert.equal((await api.catalog.title("movie", INTERSTELLAR)).watchlistItemId, wlMovie.item.id);
+
+await api.entries.create({ mediaType: "movie", tmdbId: INTERSTELLAR, genreId: 878, tier: "liked", aboveEntryId: null });
+await api.live.create({
+  kind: "festival",
+  name: "glastonbury",
+  date: "2027-06-24",
+  lineup: [{ role: "headliner", performer: { mbid: "ada7a83c-e3e1-40f1-93f9-3e73dbc9298a", name: "Arctic Monkeys" } }],
+});
+const remaining = (await api.watchlist.list()).items;
+assert.deepEqual(
+  remaining.map((i) => i.kind),
+  ["tv"],
+  "ranked movie, seen artist and attended festival are crossed off",
+);
+await api.watchlist.remove(remaining[0].id);
+assert.equal((await api.watchlist.list()).items.length, 0);
+
+const profile = await api.users.profile(`smoke_${suffix}`);
+assert.deepEqual(profile.stats, { movies: 4, series: 1, liveShows: 2, performers: 2, cities: 1 });
+
+// Community discovery: this user's fresh logs should lead the trending chart
+const { results: trendingMovies } = await api.catalog.trending("movie");
+assert.ok(trendingMovies[0].community && trendingMovies[0].community.recentLogs >= 1);
+const trendingIds = trendingMovies.filter((t) => t.community).map((t) => t.tmdbId);
+assert.ok(trendingIds.includes(210577) && trendingIds.includes(146233));
+
+// A second user rating Prisoners makes it eligible for "top rated" (needs ≥2 ratings)
+token = (await api.auth.register({ email: `smoke2_${suffix}@example.com`, username: `smoke2_${suffix}`, password: "correct-horse" })).token;
+await api.entries.create({ mediaType: "movie", tmdbId: 146233, genreId: THRILLER, tier: "liked", aboveEntryId: null });
+const { results: top } = await api.catalog.topRated("movie");
+const prisoners = top.find((t) => t.tmdbId === 146233);
+assert.ok(prisoners && prisoners.community!.totalLogs >= 2);
+console.log("top rated:", top.slice(0, 3).map((t) => `${t.name} ${t.community?.avgScore}`).join(", "));
+
+// Genre recommendations for user 2 (who has only ranked Prisoners)
+const { genres } = await api.catalog.genres("movie");
+assert.equal(genres[0].id, THRILLER);
+assert.equal(genres[0].yourCount, 1);
+const recs = await api.catalog.recommendations("movie", THRILLER);
+assert.equal(recs.genre.name, "Thriller");
+assert.ok(!recs.community.some((t) => t.tmdbId === 146233), "already-ranked titles are excluded");
+assert.ok(recs.community.some((t) => t.tmdbId === 210577), "other users' favourites are recommended");
+assert.equal(recs.becauseYouLoved?.title.tmdbId, 146233);
+assert.ok(recs.becauseYouLoved!.results.length > 0);
+assert.ok(recs.acclaimed.length > 0 && !recs.acclaimed.some((t) => t.tmdbId === 146233));
+console.log(
+  "thriller picks:",
+  recs.community.map((t) => t.name).join(", "),
+  "| because you loved Prisoners:",
+  recs.becauseYouLoved!.results.slice(0, 3).map((t) => t.name).join(", "),
+);
+
+console.log("smoke test passed ✔");
