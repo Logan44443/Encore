@@ -9,6 +9,7 @@ import { rateLimit } from "./lib/rate-limit";
 import { rejectSessionsBeforePasswordChange } from "./lib/sessions";
 import { catalog } from "./providers/catalog";
 import { setlistFmEnabled } from "./providers/setlistfm";
+import { accountRoutes } from "./routes/account";
 import { authRoutes } from "./routes/auth";
 import { catalogRoutes } from "./routes/catalog";
 import { entryRoutes } from "./routes/entries";
@@ -45,6 +46,7 @@ export const app = new Hono()
   .route("/music", musicRoutes)
   .route("/live", liveRoutes)
   .route("/watchlist", watchlistRoutes)
+  .route("/account", accountRoutes)
   .route("/users", userRoutes);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));

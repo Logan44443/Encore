@@ -22,6 +22,7 @@ export default function ProfileTab() {
                 onPress={() => router.push("/country")}
               />
               <Button label="Sign out" tone="ghost" onPress={() => { signOut(); router.replace("/"); }} />
+              <Button label="Delete account" tone="ghost" onPress={() => router.push("/delete-account")} />
             </View>
           }
         />
