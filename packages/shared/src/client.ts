@@ -206,16 +206,16 @@ export function createApiClient({
       remove: (id: string) => request<null>("DELETE", p(`/live/${id}`)),
     },
 
+    account: {
+      /** Permanently deletes the signed-in account and everything it logged. */
+      delete: (body: DeleteAccountInput) => request<null>("POST", p("/account/delete"), { body }),
+    },
+
     users: {
       profile: (username: string) => request<Profile>("GET", p(`/users/${username}`)),
       entries: (username: string, mediaType?: MediaType) =>
         request<{ entries: Entry[] }>("GET", p(`/users/${username}/entries`), { query: { mediaType } }),
       liveShows: (username: string) => request<{ shows: LiveShow[] }>("GET", p(`/users/${username}/live`)),
-    },
-
-    account: {
-      /** Permanently deletes the signed-in account and everything it logged. */
-      delete: (body: DeleteAccountInput) => request<null>("POST", p("/account/delete"), { body }),
     },
   };
 }
