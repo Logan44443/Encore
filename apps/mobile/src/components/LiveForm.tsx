@@ -21,6 +21,7 @@ import {
   type SongDraft,
 } from "../live-form";
 import { colors } from "../theme";
+import { DateField } from "./DateField";
 import { RatingSlider } from "./RatingSlider";
 import { Button, Chip, ErrorText, Field } from "./ui";
 
@@ -144,13 +145,7 @@ export function LiveForm({
 
       <View style={styles.section}>
         <Text style={styles.h2}>When and where?</Text>
-        <Field
-          label="Date (YYYY-MM-DD, blank = today)"
-          value={v.date}
-          onChangeText={(date) => set("date", date)}
-          autoCapitalize="none"
-          placeholder="2026-09-29"
-        />
+        <DateField label="Date" value={v.date} onChange={(date) => set("date", date)} emptyText="Today" noFuture />
         {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
         <Field label="Venue" value={v.venueName} onChangeText={(venueName) => setV((p) => ({ ...p, venueName, lat: null, lng: null, setlistFmVenueId: null }))} />
         <Field label="City" value={v.city} onChangeText={(city) => setV((p) => ({ ...p, city, lat: null, lng: null }))} />

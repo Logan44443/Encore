@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { formatEpisode, localToday } from "../format";
 import { colors, tierColor } from "../theme";
+import { DateField } from "./DateField";
 import { Poster } from "./Poster";
 import { SeasonRank } from "./SeasonRank";
 import { Button, Chip, ErrorText, Loading, Muted, ScoreBadge } from "./ui";
@@ -45,7 +46,7 @@ function emptyDetails(): EntryDetails {
 /** Message for a bad "watched on" date, or null when it's blank or valid. */
 export function watchedAtError(value: string): string | null {
   const v = value.trim();
-  return v && !isValidIsoDate(v) ? "Use a real date as YYYY-MM-DD, or leave it blank" : null;
+  return v && !isValidIsoDate(v) ? "That date isn't valid. Pick one from the calendar, or clear it" : null;
 }
 
 export function RankSheet({
@@ -227,14 +228,7 @@ export function RankSheet({
               onChangeText={(review) => setDetails({ ...details, review })}
             />
             <Text style={styles.label}>Watched on</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.muted}
-              value={details.watchedAt}
-              onChangeText={(watchedAt) => setDetails({ ...details, watchedAt })}
-              autoCapitalize="none"
-            />
+            <DateField value={details.watchedAt} onChange={(watchedAt) => setDetails({ ...details, watchedAt })} noFuture />
             {title.mediaType === "tv" && title.seasons.length > 0 && (
               <>
                 <EpisodeField

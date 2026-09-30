@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { PerformerSearch } from "@/components/LiveForm";
+import { DateField } from "@/components/DateField";
 import { Poster } from "@/components/Poster";
 import { AuthGate, Button, Chip, Empty, ErrorText, Field, H1, Loading, Muted, Screen } from "@/components/ui";
 import { daysUntil, formatDate } from "@/format";
@@ -123,11 +124,11 @@ function AddFestival() {
     <View style={{ gap: 8 }}>
       <Text style={{ color: colors.text, fontWeight: "800" }}>Add a festival</Text>
       <Field label="Name" value={f.name} onChangeText={(name) => setF({ ...f, name })} placeholder="Glastonbury 2027" />
-      <Field label="Date" value={f.date} onChangeText={(date) => setF({ ...f, date })} placeholder="YYYY-MM-DD" autoCapitalize="none" />
+      <DateField label="Date" value={f.date} onChange={(date) => setF({ ...f, date })} />
       <Field label="City" value={f.city} onChangeText={(city) => setF({ ...f, city })} />
       <Field label="Country" value={f.country} onChangeText={(country) => setF({ ...f, country })} />
       <Field label="Note" value={f.note} onChangeText={(note) => setF({ ...f, note })} />
-      {badDate ? <ErrorText error={new Error("Use a real date as YYYY-MM-DD, or leave it blank")} /> : null}
+      {badDate ? <ErrorText error={new Error("That date isn't valid. Pick one from the calendar, or clear it")} /> : null}
       <ErrorText error={add.error} />
       <Button
         label="Add festival"

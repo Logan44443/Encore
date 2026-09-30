@@ -70,7 +70,7 @@ export function validateLiveForm(v: LiveShowFormValues): LiveFormErrors {
   if (!v.kind) errors.kind = "Pick what kind of show it was";
   if (v.lineup.length === 0) errors.lineup = "Add at least one performer";
   if (v.rating === null) errors.rating = "Slide to rate the show";
-  if (v.date.trim() && !isValidIsoDate(v.date.trim())) errors.date = "Use a real date as YYYY-MM-DD, or leave it blank for today";
+  if (v.date.trim() && !isValidIsoDate(v.date.trim())) errors.date = "That date isn't valid. Pick one from the calendar, or clear it for today";
   return errors;
 }
 
