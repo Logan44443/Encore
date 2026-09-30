@@ -1,13 +1,34 @@
 import { TIER_RANGES, type Tier } from "./constants";
 
 /**
- * Score for the item at `index` (0 = best) in a tier list of length `n`.
- * The API mirrors this formula in SQL; keep them in sync.
+ * Scores for one ranked list, best → worst. `userScores[i]` is the score you set
+ * yourself for that title (or null). Those titles keep their score; every other
+ * title is spaced evenly between the nearest set scores above and below it, with
+ * the tier's top and bottom as the outer bounds. With nothing set, a lone title
+ * lands mid-tier and a long list approaches the edges without piling up on them.
  */
-export function scoreFor(tier: Tier, index: number, n: number): number {
+export function scoreList(tier: Tier, userScores: readonly (number | null)[]): number[] {
   const { min, max } = TIER_RANGES[tier];
-  if (n <= 0) return max;
-  return Math.round((min + ((max - min) * (n - index)) / n) * 10) / 10;
+  const n = userScores.length;
+  const out: number[] = new Array(n);
+  let prevIdx = -1;
+  let prevScore = max;
+  for (let i = 0; i <= n; i++) {
+    const own = i < n ? userScores[i] : min;
+    if (own === null) continue;
+    // Clamp so a set score can never outrank the one above it.
+    const anchor = Math.min(prevScore, Math.max(min, own));
+    const gap = i - prevIdx;
+    for (let j = prevIdx + 1; j < i; j++) out[j] = round1(prevScore - ((prevScore - anchor) * (j - prevIdx)) / gap);
+    if (i < n) out[i] = round1(anchor);
+    prevIdx = i;
+    prevScore = anchor;
+  }
+  return out;
+}
+
+function round1(x: number): number {
+  return Math.round(x * 10) / 10;
 }
 
 /**

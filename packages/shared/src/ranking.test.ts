@@ -5,7 +5,7 @@ import {
   insertionIndex,
   maxComparisons,
   nextComparisonIndex,
-  scoreFor,
+  scoreList,
   startComparison,
 } from "./ranking";
 
@@ -33,8 +33,29 @@ test("question count is logarithmic", () => {
 });
 
 test("scores stay inside tier ranges", () => {
-  assert.equal(scoreFor("liked", 0, 1), 10);
-  assert.ok(scoreFor("liked", 9, 10) >= 6.8);
-  assert.ok(scoreFor("fine", 0, 5) <= 6.7);
-  assert.ok(scoreFor("disliked", 0, 3) <= 3.4);
+  const ten = Array<null>(10).fill(null);
+  assert.ok(scoreList("liked", ten).every((x) => x >= 6.8 && x <= 10));
+  assert.ok(scoreList("fine", ten).every((x) => x >= 3.5 && x <= 6.7));
+  assert.ok(scoreList("disliked", ten).every((x) => x >= 0 && x <= 3.4));
+});
+
+test("a lone title with no score set sits mid-tier, not at the top", () => {
+  assert.deepEqual(scoreList("liked", [null]), [8.4]);
+  assert.deepEqual(scoreList("liked", [null, null, null]), [9.2, 8.4, 7.6]);
+});
+
+test("set scores stay put and the rest fill in around them", () => {
+  assert.deepEqual(scoreList("liked", [7.5]), [7.5]);
+  assert.deepEqual(scoreList("liked", [9, 7.5]), [9, 7.5]);
+  // One title ranked above a set 8.0 lands halfway to the top of the tier.
+  assert.deepEqual(scoreList("liked", [null, 8]), [9, 8]);
+  // Two titles between set scores of 9.4 and 7.0 split the gap evenly.
+  assert.deepEqual(scoreList("liked", [9.4, null, null, 7]), [9.4, 8.6, 7.8, 7]);
+  // Below the lowest set score, titles spread toward the bottom of the tier.
+  assert.deepEqual(scoreList("liked", [8, null]), [8, 7.4]);
+});
+
+test("a set score out of order is clamped under the one above", () => {
+  assert.deepEqual(scoreList("liked", [8, 9]), [8, 8]);
+  assert.deepEqual(scoreList("fine", [9]), [6.7]);
 });

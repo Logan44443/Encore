@@ -15,6 +15,12 @@ export const TIER_RANGES: Record<Tier, { min: number; max: number }> = {
   disliked: { min: 0, max: 3.4 },
 };
 
+/**
+ * While a genre + tier list holds fewer than this many other titles, you set the
+ * new title's score yourself with a slider instead of answering comparisons.
+ */
+export const SET_SCORE_BELOW = 2;
+
 export const TIER_LABELS: Record<Tier, string> = {
   liked: "I liked it",
   fine: "It was fine",

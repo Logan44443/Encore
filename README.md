@@ -90,6 +90,8 @@ TMDB requires crediting them in production ("This product uses the TMDB API but 
 
 Each user has one ranked list per **(media type, genre, reaction tier)**. Tiers own non-overlapping score bands: liked 6.8–10, fine 3.5–6.7, didn't like 0–3.4.
 
+For the first two titles in a list you set the score yourself with a slider inside the band. After that, new titles are ranked by comparison. Titles you scored keep their score, and every other title is spaced evenly between the nearest set scores above and below it, with the band's top and bottom as the outer bounds (`scoreList` in `packages/shared/src/ranking.ts`). So a lone title never jumps straight to 10. Re-ranking a title by comparison clears the score you set for it.
+
 1. The client fetches the list for the chosen genre + tier (`GET /entries/candidates`).
 2. It runs a **binary insertion** locally — at most ⌈log₂(n+1)⌉ questions (7 questions for 100 titles), no network round-trips per question.
 3. It sends only the final neighbour (`aboveEntryId`). The API stores a **fractional position** (a midpoint between neighbours, so an insert writes one row) and rescores that single list with one windowed `UPDATE`. Scores are stored denormalised so every read is a plain indexed `SELECT`.

@@ -86,6 +86,8 @@ export const titleEntries = pgTable(
     tier: tierEnum("tier").notNull(),
     position: doublePrecision("position").notNull(),
     score: real("score").notNull(),
+    /** Score you set with the slider (first titles in a list); null = derived from rank. */
+    userScore: real("user_score"),
     review: text("review"),
     favoriteEpisode: jsonb("favorite_episode").$type<EpisodeRef>(),
     leastFavoriteEpisode: jsonb("least_favorite_episode").$type<EpisodeRef>(),
