@@ -15,6 +15,7 @@ import type {
   UpdateEntryInput,
   UpdateLiveShowInput,
 } from "./schemas";
+import type { PasswordResetConfirmInput, PasswordResetRequestInput } from "./password-reset";
 import type {
   AuthResponse,
   DiscoverResult,
@@ -120,6 +121,13 @@ export function createApiClient({
       login: (body: LoginInput) => request<AuthResponse>("POST", p("/auth/login"), { body }),
       me: () => request<{ user: User }>("GET", p("/auth/me")),
       setCountry: (body: UpdateCountryInput) => request<{ user: User }>("PUT", p("/auth/me/country"), { body }),
+    },
+
+    passwordReset: {
+      /** Emails a one-time code if the address has an account; responds the same either way. */
+      request: (body: PasswordResetRequestInput) => request<{ ok: true }>("POST", p("/auth/password-reset/request"), { body }),
+      /** Sets the new password and signs out every existing session. Sign in afterwards. */
+      confirm: (body: PasswordResetConfirmInput) => request<{ ok: true }>("POST", p("/auth/password-reset/confirm"), { body }),
     },
 
     catalog: {

@@ -15,6 +15,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Back" }} />
           <Stack.Screen name="login" options={{ title: "Sign in", presentation: "modal" }} />
           <Stack.Screen name="register" options={{ title: "Join Encore", presentation: "modal" }} />
+          <Stack.Screen name="forgot-password" options={{ title: "Reset password", presentation: "modal" }} />
           <Stack.Screen name="picks" options={{ title: "Picks" }} />
           <Stack.Screen name="recommended" options={{ title: "Recommended for you" }} />
           <Stack.Screen name="country" options={{ title: "Streaming country" }} />

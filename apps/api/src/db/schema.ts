@@ -39,6 +39,8 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   country: text("country"),
   countryManual: boolean("country_manual").notNull().default(false),
+  /** Sessions issued before this are rejected (set by password reset). */
+  passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
   ...timestamps,
 });
 
@@ -302,3 +304,14 @@ export const liveShowPerformersRelations = relations(liveShowPerformers, ({ one,
 export const liveShowSongsRelations = relations(liveShowSongs, ({ one }) => ({
   slot: one(liveShowPerformers, { fields: [liveShowSongs.slotId], references: [liveShowPerformers.id] }),
 }));
+
+/** One-time codes for "forgot password". Only an HMAC of the code is stored; one live code per user. */
+export const passwordResetCodes = pgTable("password_reset_codes", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

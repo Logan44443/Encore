@@ -6,6 +6,7 @@ import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 import { env } from "./env";
 import { rateLimit } from "./lib/rate-limit";
+import { rejectSessionsBeforePasswordChange } from "./lib/sessions";
 import { catalog } from "./providers/catalog";
 import { setlistFmEnabled } from "./providers/setlistfm";
 import { accountRoutes } from "./routes/account";
@@ -14,6 +15,7 @@ import { catalogRoutes } from "./routes/catalog";
 import { entryRoutes } from "./routes/entries";
 import { liveRoutes } from "./routes/live";
 import { musicRoutes } from "./routes/music";
+import { passwordResetRoutes } from "./routes/password-reset";
 import { userRoutes } from "./routes/users";
 import { watchlistRoutes } from "./routes/watchlist";
 
@@ -26,6 +28,7 @@ export const app = new Hono()
   // Searches fan out to TMDB / MusicBrainz (which allows ~1 request/second in total), so cap them per IP.
   .use("/catalog/search", rateLimit(60, 60_000, "catalog-search"))
   .use("/music/*", rateLimit(40, 60_000, "music"))
+  .use(rejectSessionsBeforePasswordChange)
   .get("/", (c) =>
     c.json({
       name: "Encore API",
@@ -37,6 +40,7 @@ export const app = new Hono()
     c.json({ ok: true as const, providers: { tmdb: catalog.kind, setlistFm: setlistFmEnabled } }),
   )
   .route("/auth", authRoutes)
+  .route("/auth/password-reset", passwordResetRoutes)
   .route("/catalog", catalogRoutes)
   .route("/entries", entryRoutes)
   .route("/music", musicRoutes)
