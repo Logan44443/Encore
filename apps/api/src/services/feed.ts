@@ -8,10 +8,11 @@ import {
   type FeedReason,
   type MediaType,
   type SearchResult,
+  type WatchProvider,
 } from "@encore/shared";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "../db/client";
-import { dismissedTitles, titleEntries, titles } from "../db/schema";
+import { dismissedTitles, titleEntries, titles, users } from "../db/schema";
 import { TtlCache } from "../lib/cache";
 import { catalog } from "../providers/catalog";
 import { statsFor, topRated, trending } from "./discover";
@@ -28,6 +29,8 @@ import { listWatchlist } from "./watchlist";
  *   watchlist — saved but not yet ranked (at most 3 in the feed)     1.5
  * Boosts: genre affinity of the title, community score, recent release.
  * Penalty: shares genres with titles you marked "not interested".
+ * My services: the best candidates are checked against the services you pay for
+ * in your country; ones you can stream get a boost and an "On Netflix" label.
  * Anything ranked or dismissed is never shown. The list is then mixed so the
  * same reason and media type don't run back-to-back.
  */
@@ -37,6 +40,10 @@ const MIN_LIKED = 3;
 const MIN_OVERLAP = 2;
 const MAX_WATCHLIST = 3;
 const MAX_PER_SEED = 4;
+/** How many of the best candidates are checked for your services (each is one cached TMDB lookup). */
+const SERVICE_CHECKS = 60;
+/** Streamable picks score 20% higher plus a flat 0.5, so they move up without crowding out great titles elsewhere. */
+const serviceBoost = (points: number) => points * 0.2 + 0.5;
 
 const cache = new TtlCache<Feed>(500);
 const CACHE_MS = 15 * 60_000;
@@ -60,11 +67,14 @@ export function getFeed(userId: string): Promise<Feed> {
 }
 
 async function buildFeed(userId: string): Promise<Feed> {
-  const [entries, dismissed, watchlist] = await Promise.all([
+  const [entries, dismissed, watchlist, user] = await Promise.all([
     listEntries(userId, {}),
     db.select().from(dismissedTitles).where(eq(dismissedTitles.userId, userId)),
     listWatchlist(userId),
+    db.query.users.findFirst({ where: eq(users.id, userId), columns: { country: true, services: true } }),
   ]);
+  const mine: MyServices | null =
+    user?.country && user.services.length ? { country: user.country, ids: new Set(user.services) } : null;
 
   const excluded = new Set<Key>([
     ...entries.map((e) => keyOf(e.title)),
@@ -72,7 +82,9 @@ async function buildFeed(userId: string): Promise<Feed> {
   ]);
   const liked = entries.filter((e) => e.tier === "liked");
 
-  if (liked.length < MIN_LIKED) return { items: await popularFeed(excluded), personalized: false };
+  if (liked.length < MIN_LIKED) {
+    return { items: await labelServices(await popularFeed(excluded), mine), personalized: false };
+  }
 
   const affinity = genreAffinity(entries);
   const dismissedGenres = dismissed.map((d) => new Set(d.genreIds));
@@ -148,11 +160,21 @@ async function buildFeed(userId: string): Promise<Feed> {
     })
     .sort((a, b) => b.points - a.points);
 
-  const items = mix(ranked);
+  // Titles you can already watch move up. Only the top of the list is checked, which
+  // is all that can reach the feed once boosted.
+  const streamable = await servicesFor(ranked.slice(0, SERVICE_CHECKS).map((c) => c.title), mine);
+  const boosted = ranked
+    .map((c) => {
+      const onServices = streamable.get(keyOf(c.title)) ?? [];
+      return { ...c, onServices, points: c.points + (onServices.length ? serviceBoost(c.points) : 0) };
+    })
+    .sort((a, b) => b.points - a.points);
+
+  const items = mix(boosted);
   if (items.length < FEED_SIZE) {
     const have = new Set(items.map((i) => keyOf(i.title)));
     const fill = (await popularFeed(new Set([...excluded, ...have]))).slice(0, FEED_SIZE - items.length);
-    items.push(...fill);
+    items.push(...(await labelServices(fill, mine)));
   }
   return { items, personalized: true };
 }
@@ -276,7 +298,7 @@ async function annotate(list: SearchResult[]): Promise<Map<Key, DiscoverResult>>
  * pick, looking a few places ahead so quality still wins. No seed contributes
  * more than MAX_PER_SEED titles.
  */
-function mix(ranked: (Candidate & { title: DiscoverResult })[]): FeedItem[] {
+function mix(ranked: (Candidate & { title: DiscoverResult; onServices: WatchProvider[] })[]): FeedItem[] {
   type C = (typeof ranked)[number];
   const pool = [...ranked];
   const out: FeedItem[] = [];
@@ -298,9 +320,45 @@ function mix(ranked: (Candidate & { title: DiscoverResult })[]): FeedItem[] {
     pool.splice(pool.indexOf(pick), 1);
     perGroup.set(pick.best.group, (perGroup.get(pick.best.group) ?? 0) + 1);
     lastGroup = pick.best.group;
-    out.push({ title: pick.title, reason: pick.best.reason });
+    out.push({ title: pick.title, reason: pick.best.reason, onServices: pick.onServices });
   }
   return out;
+}
+
+interface MyServices {
+  country: string;
+  ids: Set<number>;
+}
+
+/**
+ * For each title, which of your services stream it (or show it free) in your
+ * country. Lookups share the 3-hour watch-provider cache with title pages; a
+ * failed lookup just means no label.
+ */
+async function servicesFor(list: SearchResult[], mine: MyServices | null): Promise<Map<Key, WatchProvider[]>> {
+  const out = new Map<Key, WatchProvider[]>();
+  if (!mine) return out;
+  const queue = [...list];
+  const worker = async () => {
+    for (let t = queue.shift(); t; t = queue.shift()) {
+      const all = await catalog.watchProviders(t.mediaType, t.tmdbId).catch(() => ({}) as Record<string, never>);
+      const here = all[mine.country];
+      if (!here) continue;
+      const seen = new Set<number>();
+      const hits = [...here.stream, ...here.free].filter((p) => mine.ids.has(p.id) && !seen.has(p.id) && seen.add(p.id));
+      if (hits.length) out.set(keyOf(t), hits);
+    }
+  };
+  await Promise.all(Array.from({ length: 8 }, worker));
+  return out;
+}
+
+async function labelServices(items: FeedItem[], mine: MyServices | null): Promise<FeedItem[]> {
+  const found = await servicesFor(
+    items.map((i) => i.title),
+    mine,
+  );
+  return items.map((i) => ({ ...i, onServices: found.get(keyOf(i.title)) ?? [] }));
 }
 
 /** Cold start and top-up: community top rated plus trending, movies and TV interleaved. */
@@ -319,7 +377,7 @@ async function popularFeed(excluded: Set<Key>): Promise<FeedItem[]> {
       const t = list[i];
       if (!t || seen.has(keyOf(t))) continue;
       seen.add(keyOf(t));
-      out.push({ title: t, reason: { kind: "popular" } });
+      out.push({ title: t, reason: { kind: "popular" }, onServices: [] });
       if (out.length >= FEED_SIZE) break;
     }
   }

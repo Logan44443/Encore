@@ -49,6 +49,11 @@ export const updateCountrySchema = z.object({
   reset: z.boolean().optional(),
 });
 
+/** "My services": the full list of TMDB provider ids, replacing what was saved. */
+export const updateServicesSchema = z.object({
+  providerIds: z.array(z.number().int().positive()).max(60).transform((ids) => [...new Set(ids)]),
+});
+
 export const loginSchema = z.object({
   login: z.string().trim().min(1).max(254),
   password: z.string().min(1).max(200),
@@ -202,6 +207,7 @@ export type CreateSeasonEntryInput = z.input<typeof createSeasonEntrySchema>;
 export type RerankSeasonEntryInput = z.input<typeof rerankSeasonEntrySchema>;
 export type DismissTitleInput = z.input<typeof dismissTitleSchema>;
 export type UpdateCountryInput = z.input<typeof updateCountrySchema>;
+export type UpdateServicesInput = z.input<typeof updateServicesSchema>;
 export type DeleteAccountInput = z.input<typeof deleteAccountSchema>;
 export type LiveSongInput = z.input<typeof liveSongSchema>;
 export type PerformerRef = z.input<typeof performerRefSchema>;

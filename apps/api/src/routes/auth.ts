@@ -1,4 +1,4 @@
-import { loginSchema, registerSchema, updateCountrySchema, type User } from "@encore/shared";
+import { loginSchema, registerSchema, updateCountrySchema, updateServicesSchema, type User } from "@encore/shared";
 import { eq, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -7,6 +7,7 @@ import { users } from "../db/schema";
 import { hashPassword, requireAuth, signToken, verifyPassword, type AuthVars } from "../lib/auth";
 import { clientIp, RateLimiter, tooMany } from "../lib/rate-limit";
 import { validate } from "../lib/validate";
+import { invalidateFeed } from "../services/feed";
 
 const MINUTE = 60_000;
 /** Password guessing: per IP, and per account so rotating IPs can't hammer one user. */
@@ -23,6 +24,7 @@ const toUser = (u: typeof users.$inferSelect): User => ({
   displayName: u.displayName,
   country: u.country,
   countryManual: u.countryManual,
+  services: u.services,
 });
 
 export const authRoutes = new Hono<AuthVars>()
@@ -83,5 +85,19 @@ export const authRoutes = new Hono<AuthVars>()
     if (!current) throw new HTTPException(401, { message: "Account no longer exists" });
     if (!manual && !reset && current.countryManual) return c.json({ user: toUser(current) });
     const [user] = await db.update(users).set({ country, countryManual: manual }).where(eq(users.id, userId)).returning();
+    // The feed's "On Netflix" labels depend on the country.
+    if (user.country !== current.country) invalidateFeed(userId);
+    return c.json({ user: toUser(user) });
+  })
+
+  .put("/me/services", requireAuth, validate("json", updateServicesSchema), async (c) => {
+    const userId = c.get("userId");
+    const [user] = await db
+      .update(users)
+      .set({ services: c.req.valid("json").providerIds })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new HTTPException(401, { message: "Account no longer exists" });
+    invalidateFeed(userId);
     return c.json({ user: toUser(user) });
   });

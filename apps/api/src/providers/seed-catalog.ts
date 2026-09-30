@@ -175,6 +175,10 @@ export const seedCatalog: CatalogProvider = {
     return DEMO_REGIONS;
   },
 
+  async streamingServices() {
+    return [];
+  },
+
   async details(type, tmdbId) {
     return titles.find((t) => t.mediaType === type && t.tmdbId === tmdbId) ?? null;
   },

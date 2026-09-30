@@ -6,6 +6,7 @@ import {
   type Region,
   type SearchResult,
   type Title,
+  type WatchProvider,
   type WatchProviders,
 } from "@encore/shared";
 import { env } from "../env";
@@ -29,6 +30,8 @@ export interface CatalogProvider {
   watchProviders(type: MediaType, tmdbId: number): Promise<Record<string, WatchProviders>>;
   /** Countries that have streaming data. */
   regions(): Promise<Region[]>;
+  /** Streaming services available in a country (movies and TV combined), most popular first. */
+  streamingServices(country: string): Promise<WatchProvider[]>;
   season(tvId: number, season: number): Promise<Episode[]>;
   /** Throws if credentials are rejected. */
   verify(): Promise<void>;

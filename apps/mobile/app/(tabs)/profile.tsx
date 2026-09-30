@@ -16,6 +16,7 @@ export default function ProfileTab() {
           username={user.username}
           footer={
             <View style={{ gap: 8 }}>
+              <Button label={servicesLabel(user.services.length)} tone="ghost" onPress={() => router.push("/services")} />
               <Button
                 label={`Streaming country: ${flag(country)} ${countryName(country)}`}
                 tone="ghost"
@@ -29,4 +30,9 @@ export default function ProfileTab() {
       )}
     </AuthGate>
   );
+}
+
+function servicesLabel(count: number) {
+  if (count === 0) return "My services: add the ones you pay for";
+  return `My services: ${count} ${count === 1 ? "service" : "services"}`;
 }
