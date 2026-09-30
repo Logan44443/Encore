@@ -39,6 +39,16 @@ export default function Login() {
       <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry />
       <ErrorText error={error} />
       <Button label={pending ? "…" : "Sign in"} disabled={pending || !login || !password} onPress={submit} />
+      <Pressable
+        onPress={() =>
+          router.replace({
+            pathname: "/forgot-password",
+            params: { ...(login.includes("@") ? { email: login.trim() } : {}), ...(next ? { next } : {}) },
+          })
+        }
+      >
+        <Text style={{ color: colors.muted, fontWeight: "600" }}>Forgot password?</Text>
+      </Pressable>
       <Pressable onPress={() => router.replace("/register")}>
         <Text style={{ color: colors.brand, fontWeight: "700" }}>Create an account</Text>
       </Pressable>

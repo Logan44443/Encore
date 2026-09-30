@@ -50,6 +50,13 @@
       "when": 1790679977911,
       "tag": "0006_user_country",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790765160678,
+      "tag": "0007_password_reset",
+      "breakpoints": true
     }
   ]
 }
