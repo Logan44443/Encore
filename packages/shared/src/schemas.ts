@@ -180,6 +180,11 @@ export const updateWatchlistSchema = z.object({
   country: optionalText(100),
 });
 
+/** Deleting an account asks for the password again so a borrowed, unlocked phone can't do it. */
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1).max(200),
+});
+
 export type RegisterInput = z.input<typeof registerSchema>;
 export type LoginInput = z.input<typeof loginSchema>;
 export type EpisodeRef = z.infer<typeof episodeRefSchema>;
@@ -190,6 +195,7 @@ export type CreateSeasonEntryInput = z.input<typeof createSeasonEntrySchema>;
 export type RerankSeasonEntryInput = z.input<typeof rerankSeasonEntrySchema>;
 export type DismissTitleInput = z.input<typeof dismissTitleSchema>;
 export type UpdateCountryInput = z.input<typeof updateCountrySchema>;
+export type DeleteAccountInput = z.input<typeof deleteAccountSchema>;
 export type LiveSongInput = z.input<typeof liveSongSchema>;
 export type PerformerRef = z.input<typeof performerRefSchema>;
 export type VenueInput = z.input<typeof venueInputSchema>;

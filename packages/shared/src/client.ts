@@ -5,6 +5,7 @@ import type {
   CreateEntryInput,
   CreateLiveShowInput,
   CreateSeasonEntryInput,
+  DeleteAccountInput,
   DismissTitleInput,
   LoginInput,
   RegisterInput,
@@ -210,6 +211,11 @@ export function createApiClient({
       entries: (username: string, mediaType?: MediaType) =>
         request<{ entries: Entry[] }>("GET", p(`/users/${username}/entries`), { query: { mediaType } }),
       liveShows: (username: string) => request<{ shows: LiveShow[] }>("GET", p(`/users/${username}/live`)),
+    },
+
+    account: {
+      /** Permanently deletes the signed-in account and everything it logged. */
+      delete: (body: DeleteAccountInput) => request<null>("POST", p("/account/delete"), { body }),
     },
   };
 }
