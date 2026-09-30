@@ -5,6 +5,8 @@ export interface User {
   id: string;
   username: string;
   displayName: string;
+  /** Only ever sent to the account's owner. */
+  email: string;
   /** ISO 3166-1 alpha-2 code used for streaming availability, e.g. "US". */
   country: string | null;
   /** True once the user picked a country; until then it follows the device region. */

@@ -9,7 +9,7 @@ import { colors } from "@/theme";
 
 /** Two steps: email a one-time code, then enter it with a new password. Signs in on success. */
 export default function ForgotPassword() {
-  const { signIn } = useAuth();
+  const { user, signIn } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams<{ email?: string; next?: string }>();
   const [email, setEmail] = useState(params.email ?? "");
@@ -50,7 +50,8 @@ export default function ForgotPassword() {
       else router.back();
     });
 
-  const backToSignIn = (
+  // Reached from Settings while signed in, where "sign in" makes no sense.
+  const backToSignIn = user ? null : (
     <Pressable onPress={() => router.replace({ pathname: "/login", params: params.next ? { next: params.next } : {} })}>
       <Text style={{ color: colors.brand, fontWeight: "700" }}>Back to sign in</Text>
     </Pressable>

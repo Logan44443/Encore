@@ -127,6 +127,48 @@ export function Field({ label, ...props }: { label: string } & TextInputProps) {
   );
 }
 
+/** A titled, grouped list of rows, as in iOS Settings. */
+export function SettingsGroup({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <View style={{ gap: 6 }}>
+      {title ? <Text style={styles.fieldLabel}>{title}</Text> : null}
+      <View style={styles.group}>{children}</View>
+    </View>
+  );
+}
+
+/** One tappable row: a label, an optional current value on the right, and a chevron. */
+export function SettingsRow({
+  label,
+  value,
+  onPress,
+  tone = "default",
+  last,
+}: {
+  label: string;
+  value?: string;
+  onPress?: () => void;
+  tone?: "default" | "danger";
+  /** Drops the divider under the final row of a group. */
+  last?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      style={({ pressed }) => [styles.row, !last && styles.rowDivider, pressed && { backgroundColor: colors.panel2 }]}
+    >
+      <Text style={[styles.rowLabel, tone === "danger" && { color: colors.disliked }]}>{label}</Text>
+      {value ? (
+        <Text style={styles.rowValue} numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
+      {onPress && tone !== "danger" ? <Text style={styles.chevron}>›</Text> : null}
+    </Pressable>
+  );
+}
+
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
@@ -186,6 +228,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
   },
+  group: { backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, overflow: "hidden" },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 14 },
+  rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowLabel: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  rowValue: { flex: 1, color: colors.muted, fontSize: 15, textAlign: "right" },
+  chevron: { color: colors.muted, fontSize: 22, lineHeight: 22, marginLeft: "auto" },
   card: { backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 8 },
   badge: { borderWidth: 2, alignItems: "center", justifyContent: "center" },
 });

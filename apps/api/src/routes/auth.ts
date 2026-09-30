@@ -1,4 +1,4 @@
-import { loginSchema, registerSchema, updateCountrySchema, updateServicesSchema, type User } from "@encore/shared";
+import { loginSchema, registerSchema, updateCountrySchema, updateServicesSchema } from "@encore/shared";
 import { eq, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -6,6 +6,7 @@ import { db } from "../db/client";
 import { users } from "../db/schema";
 import { hashPassword, requireAuth, signToken, verifyPassword, type AuthVars } from "../lib/auth";
 import { clientIp, RateLimiter, tooMany } from "../lib/rate-limit";
+import { toUser } from "../lib/users";
 import { validate } from "../lib/validate";
 import { invalidateFeed } from "../services/feed";
 
@@ -17,15 +18,6 @@ const registerByIp = new RateLimiter(10, 60 * MINUTE);
 
 /** Verified against when the account doesn't exist, so a miss takes as long as a wrong password. */
 const dummyHash = hashPassword("encore-timing-equaliser");
-
-const toUser = (u: typeof users.$inferSelect): User => ({
-  id: u.id,
-  username: u.username,
-  displayName: u.displayName,
-  country: u.country,
-  countryManual: u.countryManual,
-  services: u.services,
-});
 
 export const authRoutes = new Hono<AuthVars>()
   .post("/register", validate("json", registerSchema), async (c) => {

@@ -20,6 +20,10 @@ export default function RootLayout() {
           <Stack.Screen name="recommended" options={{ title: "Recommended for you" }} />
           <Stack.Screen name="country" options={{ title: "Streaming country" }} />
           <Stack.Screen name="services" options={{ title: "My services" }} />
+          <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
+          <Stack.Screen name="settings/profile" options={{ title: "Edit profile" }} />
+          <Stack.Screen name="settings/email" options={{ title: "Email" }} />
+          <Stack.Screen name="settings/password" options={{ title: "Change password" }} />
           <Stack.Screen name="delete-account" options={{ title: "Delete account" }} />
           <Stack.Screen name="title/[type]/[id]" options={{ title: "" }} />
           <Stack.Screen name="show/new" options={{ title: "Add a show" }} />
