@@ -21,7 +21,8 @@ export default function Login() {
     try {
       const res = await api.auth.login({ login, password });
       await signIn(res);
-      if (next) router.replace(next as "/");
+      // Only follow in-app paths, never a URL a deep link smuggled in.
+      if (next && next.startsWith("/") && !next.startsWith("//")) router.replace(next as "/");
       else router.back();
     } catch (err) {
       setError(err);

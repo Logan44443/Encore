@@ -1,3 +1,4 @@
+import { isoDateSchema } from "@encore/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import { validate } from "../lib/validate";
@@ -16,7 +17,7 @@ export const musicRoutes = new Hono()
     validate(
       "query",
       z.object({
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        date: isoDateSchema.optional(),
         page: z.coerce.number().int().min(1).max(50).optional(),
       }),
     ),

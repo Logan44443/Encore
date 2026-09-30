@@ -55,6 +55,10 @@ export interface ApiClientOptions {
   /** Called per request so web (localStorage) and native (SecureStore) can supply tokens. */
   getToken?: () => string | null | Promise<string | null>;
   fetch?: typeof fetch;
+  /** Abort requests that take longer than this (default 20s) so screens never spin forever. */
+  timeoutMs?: number;
+  /** Called with the rejected token when a signed-in request comes back 401 (expired or revoked session). */
+  onUnauthorized?: (token: string) => void;
 }
 
 type Query = Record<string, string | number | undefined | null>;
@@ -63,7 +67,13 @@ type Query = Record<string, string | number | undefined | null>;
  * Platform-agnostic, typed client for the Encore API. Uses only `fetch`, so the
  * same code runs in the browser, React Native, and Node.
  */
-export function createApiClient({ baseUrl, getToken, fetch: fetchImpl = fetch }: ApiClientOptions) {
+export function createApiClient({
+  baseUrl,
+  getToken,
+  fetch: fetchImpl = fetch,
+  timeoutMs = 20_000,
+  onUnauthorized,
+}: ApiClientOptions) {
   async function request<T>(method: string, path: string, opts: { query?: Query; body?: unknown } = {}): Promise<T> {
     const url = new URL(path, baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
     for (const [k, v] of Object.entries(opts.query ?? {})) {
@@ -74,12 +84,25 @@ export function createApiClient({ baseUrl, getToken, fetch: fetchImpl = fetch }:
     if (token) headers.Authorization = `Bearer ${token}`;
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 
-    const res = await fetchImpl(url, {
-      method,
-      headers,
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    });
+    // AbortController + setTimeout rather than AbortSignal.timeout, which React Native lacks.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let res: Response;
+    try {
+      res = await fetchImpl(url, {
+        method,
+        headers,
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (controller.signal.aborted) throw new ApiError(0, "The server took too long to respond. Try again.");
+      throw new ApiError(0, "Can't reach Encore. Check your connection and try again.", err);
+    } finally {
+      clearTimeout(timer);
+    }
     const data = res.status === 204 ? null : await res.json().catch(() => null);
+    if (res.status === 401 && token) onUnauthorized?.(token);
     if (!res.ok) {
       throw new ApiError(res.status, (data as { error?: string } | null)?.error ?? res.statusText, data);
     }

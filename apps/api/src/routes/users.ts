@@ -1,4 +1,4 @@
-import { mediaTypeSchema, type Profile } from "@encore/shared";
+import { mediaTypeSchema, type Entry, type LiveShow, type Profile } from "@encore/shared";
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -8,6 +8,19 @@ import { titleEntries, users } from "../db/schema";
 import { validate } from "../lib/validate";
 import { listEntries } from "../services/entries";
 import { listLiveShows, liveStats } from "../services/live";
+
+/**
+ * Public profiles show what someone ranked and saw, not what they wrote about it:
+ * reviews and show notes stay visible only to their author (GET /entries, /live).
+ */
+const publicEntry = (e: Entry): Entry => ({ ...e, review: null });
+const publicShow = (s: LiveShow): LiveShow => ({
+  ...s,
+  liked: null,
+  disliked: null,
+  notes: null,
+  lineup: s.lineup.map((slot) => ({ ...slot, songs: slot.songs.map((song) => ({ ...song, note: null })) })),
+});
 
 const usernameParam = validate("param", z.object({ username: z.string().toLowerCase() }));
 
@@ -36,19 +49,19 @@ export const userRoutes = new Hono()
     const profile: Profile = {
       user: { id: user.id, username: user.username, displayName: user.displayName },
       stats: { ...entryStats, ...live },
-      topMovies,
-      topShows,
-      recentLiveShows,
+      topMovies: topMovies.map(publicEntry),
+      topShows: topShows.map(publicEntry),
+      recentLiveShows: recentLiveShows.map(publicShow),
     };
     return c.json(profile);
   })
 
   .get("/:username/entries", usernameParam, validate("query", z.object({ mediaType: mediaTypeSchema.optional() })), async (c) => {
     const user = await findUser(c.req.valid("param").username);
-    return c.json({ entries: await listEntries(user.id, c.req.valid("query")) });
+    return c.json({ entries: (await listEntries(user.id, c.req.valid("query"))).map(publicEntry) });
   })
 
   .get("/:username/live", usernameParam, async (c) => {
     const user = await findUser(c.req.valid("param").username);
-    return c.json({ shows: await listLiveShows(user.id) });
+    return c.json({ shows: (await listLiveShows(user.id)).map(publicShow) });
   });

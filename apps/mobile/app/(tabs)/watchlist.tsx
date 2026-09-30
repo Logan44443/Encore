@@ -1,4 +1,4 @@
-import { WATCHLIST_KIND_LABELS, WATCHLIST_KINDS, type WatchlistItem, type WatchlistKind } from "@encore/shared";
+import { isValidIsoDate, WATCHLIST_KIND_LABELS, WATCHLIST_KINDS, type WatchlistItem, type WatchlistKind } from "@encore/shared";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -118,6 +118,7 @@ function AddPanel({ tab }: { tab: Tab }) {
 function AddFestival() {
   const { add } = useWatchlistMutations();
   const [f, setF] = useState({ name: "", date: "", city: "", country: "", note: "" });
+  const badDate = Boolean(f.date.trim()) && !isValidIsoDate(f.date.trim());
   return (
     <View style={{ gap: 8 }}>
       <Text style={{ color: colors.text, fontWeight: "800" }}>Add a festival</Text>
@@ -126,13 +127,14 @@ function AddFestival() {
       <Field label="City" value={f.city} onChangeText={(city) => setF({ ...f, city })} />
       <Field label="Country" value={f.country} onChangeText={(country) => setF({ ...f, country })} />
       <Field label="Note" value={f.note} onChangeText={(note) => setF({ ...f, note })} />
+      {badDate ? <ErrorText error={new Error("Use a real date as YYYY-MM-DD, or leave it blank")} /> : null}
       <ErrorText error={add.error} />
       <Button
         label="Add festival"
-        disabled={!f.name.trim() || add.isPending}
+        disabled={!f.name.trim() || badDate || add.isPending}
         onPress={() =>
           add.mutate(
-            { kind: "festival", name: f.name, date: f.date || null, city: f.city || null, country: f.country || null, note: f.note || null },
+            { kind: "festival", name: f.name, date: f.date.trim() || null, city: f.city || null, country: f.country || null, note: f.note || null },
             { onSuccess: () => setF({ name: "", date: "", city: "", country: "", note: "" }) },
           )
         }

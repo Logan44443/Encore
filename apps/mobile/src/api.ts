@@ -26,7 +26,14 @@ export const tokenStore = {
   },
 };
 
+/** Set by AuthProvider; runs when the server rejects the saved token (expired or revoked). */
+let onSessionExpired: ((token: string) => void) | null = null;
+export function setSessionExpiredHandler(handler: ((token: string) => void) | null) {
+  onSessionExpired = handler;
+}
+
 export const api = createApiClient({
   baseUrl: apiBaseUrl(),
   getToken: () => memory,
+  onUnauthorized: (token) => onSessionExpired?.(token),
 });

@@ -99,9 +99,11 @@ export async function upsertPerformer(tx: Tx | DB, p: Slot["performer"]): Promis
     const [row] = await tx
       .insert(performers)
       .values({ mbid: p.mbid, ...values })
+      // Performers are shared by every user, so a client may only fill in a missing
+      // photo; it can never rename the artist or replace a photo someone else sees.
       .onConflictDoUpdate({
         target: performers.mbid,
-        set: { name: p.name, imageUrl: sql`coalesce(excluded.image_url, ${performers.imageUrl})` },
+        set: { imageUrl: sql`coalesce(${performers.imageUrl}, excluded.image_url)` },
       })
       .returning({ id: performers.id });
     return row.id;
@@ -125,10 +127,21 @@ async function upsertVenue(tx: Tx, v: VenueInput): Promise<number> {
     lng: v.lng ?? null,
   };
   if (v.setlistFmId) {
+    // Venues are shared too: the first import wins and later requests only fill gaps,
+    // so one user can't move or rename a venue on everyone else's shows.
     const [row] = await tx
       .insert(venues)
       .values({ setlistFmId: v.setlistFmId, ...values })
-      .onConflictDoUpdate({ target: venues.setlistFmId, set: values })
+      .onConflictDoUpdate({
+        target: venues.setlistFmId,
+        set: {
+          city: sql`coalesce(${venues.city}, excluded.city)`,
+          region: sql`coalesce(${venues.region}, excluded.region)`,
+          country: sql`coalesce(${venues.country}, excluded.country)`,
+          lat: sql`coalesce(${venues.lat}, excluded.lat)`,
+          lng: sql`coalesce(${venues.lng}, excluded.lng)`,
+        },
+      })
       .returning({ id: venues.id });
     return row.id;
   }

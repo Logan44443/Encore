@@ -1,7 +1,23 @@
 import { z } from "zod";
 import { MEDIA_TYPES, PERFORMER_ROLES, SHOW_KINDS, SONG_REACTIONS, TIERS } from "./constants";
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
+/** True for a real calendar date in YYYY-MM-DD form (rejects 2024-02-31, 2024-13-01, …). */
+export function isValidIsoDate(value: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  return y >= 1900 && y <= 2200 && date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
+}
+
+export const isoDateSchema = z.string().refine(isValidIsoDate, "Use a real date in YYYY-MM-DD form");
+const isoDate = isoDateSchema;
+/** Only https image URLs are kept; anything else is dropped so profiles never load arbitrary schemes. */
+const httpsImageUrl = z
+  .string()
+  .max(1000)
+  .nullish()
+  .transform((v) => (v && /^https:\/\/[^\s]+$/i.test(v) && URL.canParse(v) ? v : null));
 const optionalText = (max: number) => z.string().trim().max(max).nullish();
 
 export const registerSchema = z.object({
@@ -34,8 +50,8 @@ export const updateCountrySchema = z.object({
 });
 
 export const loginSchema = z.object({
-  login: z.string().trim().min(1),
-  password: z.string().min(1),
+  login: z.string().trim().min(1).max(254),
+  password: z.string().min(1).max(200),
 });
 
 export const mediaTypeSchema = z.enum(MEDIA_TYPES);
@@ -104,7 +120,7 @@ export const performerRefSchema = z.object({
   disambiguation: z.string().max(300).nullish(),
   country: z.string().max(10).nullish(),
   type: z.string().max(50).nullish(),
-  imageUrl: z.url().max(1000).nullish(),
+  imageUrl: httpsImageUrl,
 });
 
 export const venueInputSchema = z.object({

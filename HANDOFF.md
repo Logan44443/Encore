@@ -67,6 +67,7 @@ curl localhost:4000/health                 # shows whether TMDB is live and setl
 | --- | --- | --- |
 | `DATABASE_URL` | Production | Empty = embedded PGlite. Any Postgres URL works (Supabase, Neon, RDS). |
 | `JWT_SECRET` | Production | Dev falls back to an insecure fixed secret and logs a warning; production refuses to start without it. |
+| `TRUST_PROXY` | Behind a proxy | Set to `1` on Railway/Fly/Render so login rate limits use the real client IP from `X-Forwarded-For`. |
 | `TMDB_API_KEY` or `TMDB_READ_TOKEN` | Strongly recommended | Movies, TV, posters, similar titles, streaming availability. |
 | `SETLISTFM_API_KEY` | Optional | Setlist import. Currently **not set**. |
 | `MUSICBRAINZ_USER_AGENT` | Recommended | MusicBrainz requires an identifying agent: `AppName/version (contact)`. |
@@ -235,14 +236,14 @@ The API already serves all of it. Porting is client work in `apps/web`, reusing 
   - The date is a typed `YYYY-MM-DD` field, and a malformed date returns an error instead of results.
   - With no date, only the 20 newest setlists show, with no "load more".
   - Festival bills need a separate search per performer.
-- The TMDB attribution line ("uses the TMDB API but is not endorsed…") is not yet shown in either app. It's required before launch.
+- The TMDB attribution line ("uses the TMDB API but is not endorsed…") is shown on the iOS Discover screen but not yet on the website. It's required before launch.
 
 **Engineering**
 - **Testing:** there are no automated tests beyond 3 ranking unit tests in `packages/shared`. `apps/api/scripts/smoke.ts` predates the feed, seasons and country work.
 - **iOS verification:** the app was verified with typecheck and bundle export. UI testing was done by hand in the simulator by the product owner. Android is configured but untested.
 - **Migrations** run on every API boot. Before production, move them to a deploy step.
 - **Scaling:** the in-memory caches (charts, feed, third-party responses) assume a single API instance. Move them to Redis before scaling out.
-- **Auth:** no refresh tokens, no password reset, no rate limiting on login and sign-up. Sign in with Apple becomes mandatory for the App Store only if social logins are added.
+- **Auth:** no refresh tokens and no password reset. Login, sign-up and searches are rate-limited in memory (per IP, and per account for login). Sign in with Apple becomes mandatory for the App Store only if social logins are added.
 - **Deployment setup:** there's no CI, no error tracking (Sentry), and no staging environment.
 
 ## Production readiness (recommended path)
@@ -256,7 +257,7 @@ The decision so far: **keep the Hono API and use Supabase (or Neon) only as mana
 3. **Migrations:** run them as a release step instead of at boot.
 4. **Website:** deploy `apps/web` to Vercel with `NEXT_PUBLIC_API_URL`.
 5. **iOS:**
-   - Set `EXPO_PUBLIC_API_URL` to the hosted API and remove the local-networking exception from `app.json` for release.
+   - Set `EXPO_PUBLIC_API_URL` to the hosted https API. `app.config.ts` then drops the plain-HTTP exceptions (iOS local networking, Android cleartext) automatically.
    - Set up EAS Build, build, and ship through TestFlight. This needs an Apple Developer account.
 6. **Hardening:** rate-limit auth, add refresh tokens and password reset, add Sentry to the API and both apps, and add CI that runs typecheck and tests on every push.
 7. **Legal:** add TMDB attribution; keep the JustWatch credit; get setlist.fm's permission if the app becomes commercial.

@@ -176,4 +176,24 @@ console.log(
   recs.becauseYouLoved!.results.slice(0, 3).map((t) => t.name).join(", "),
 );
 
+// Security: shared records, private notes, dates, expired sessions
+await assert.rejects(
+  api.live.create({ date: "2024-02-31", rating: 5, lineup: [{ performer: { name: "Anyone" } }] }),
+  (err: { status?: number }) => err.status === 400,
+  "an impossible date is a 400, not a server error",
+);
+const renamed = await api.live.create({
+  date: "2025-01-10",
+  rating: 5,
+  lineup: [{ performer: { mbid: "a74b1b7f-71a5-4011-9441-d0b5e4122711", name: "Not Radiohead", imageUrl: "https://example.com/x.jpg" } }],
+});
+assert.equal(renamed.show.lineup[0].performer.name, "Radiohead", "one user can't rename a shared artist");
+const publicProfile = await api.users.profile(`smoke_${suffix}`);
+assert.ok(publicProfile.recentLiveShows.length > 0);
+assert.ok(publicProfile.recentLiveShows.every((s) => s.liked === null && s.notes === null), "notes stay private");
+let expired = 0;
+const stale = createApiClient({ baseUrl, getToken: () => "not-a-real-token", onUnauthorized: () => expired++ });
+await assert.rejects(stale.auth.me(), (err: { status?: number }) => err.status === 401);
+assert.equal(expired, 1, "clients are told when their session is no longer valid");
+
 console.log("smoke test passed ✔");

@@ -46,3 +46,9 @@ export function daysUntil(iso: string) {
   const ms = new Date(`${iso}T00:00:00`).getTime() - new Date(new Date().toDateString()).getTime();
   return Math.round(ms / 86_400_000);
 }
+
+/** Today's date in the phone's time zone as YYYY-MM-DD (toISOString would give the UTC date). */
+export function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}

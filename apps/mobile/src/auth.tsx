@@ -1,7 +1,7 @@
 import { ApiError, type AuthResponse, type User } from "@encore/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, tokenStore } from "./api";
+import { api, setSessionExpiredHandler, tokenStore } from "./api";
 import { deviceRegion } from "./region";
 
 interface AuthState {
@@ -73,6 +73,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     queryClient.clear();
   }, [queryClient]);
+
+  // A 30-day token eventually expires; drop it so the app shows "Sign in" instead of failing every request.
+  useEffect(() => {
+    setSessionExpiredHandler((rejected) => {
+      // Ignore a late 401 from a request sent before the user signed in again.
+      if (rejected === tokenStore.get()) void signOut();
+    });
+    return () => setSessionExpiredHandler(null);
+  }, [signOut]);
 
   return <AuthContext.Provider value={{ user, ready, signIn, signOut, setUser }}>{children}</AuthContext.Provider>;
 }

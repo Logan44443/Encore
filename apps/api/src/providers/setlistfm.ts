@@ -70,6 +70,7 @@ export async function performerSetlists(mbid: string, opts: { date?: string; pag
   return swr(`setlistfm:${url.search}`, { fresh: 6 * HOUR, stale: 7 * DAY }, async () => {
     const res = await fetch(url, {
       headers: { "x-api-key": env.setlistFmApiKey!, Accept: "application/json" },
+      signal: AbortSignal.timeout(10_000),
     });
     if (res.status === 404) return [];
     if (!res.ok) throw new HTTPException(502, { message: `setlist.fm error ${res.status}` });
