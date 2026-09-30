@@ -9,6 +9,8 @@ export interface User {
   country: string | null;
   /** True once the user picked a country; until then it follows the device region. */
   countryManual: boolean;
+  /** Streaming services the user pays for, as TMDB provider ids ("My services"). */
+  services: number[];
 }
 
 /** What other people can see about a user. */
@@ -80,6 +82,8 @@ export type FeedReason =
 export interface FeedItem {
   title: DiscoverResult;
   reason: FeedReason;
+  /** Your services that stream it (or show it free) in your country; empty if none or unknown. */
+  onServices: WatchProvider[];
 }
 
 export interface Feed {

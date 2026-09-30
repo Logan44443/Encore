@@ -20,10 +20,13 @@ export function WhereToWatch({ mediaType, tmdbId }: { mediaType: MediaType; tmdb
   });
   const p = data?.providers;
   const link = p?.link;
+  // Your services first, so "you can watch this now" is the first thing you see.
+  const mine = new Set(user?.services ?? []);
+  const yoursFirst = (list: WatchProvider[]) => [...list].sort((a, b) => Number(mine.has(b.id)) - Number(mine.has(a.id)));
   const groups: [string, WatchProvider[]][] = p
     ? ([
-        ["Stream", p.stream],
-        ["Free", p.free],
+        ["Stream", yoursFirst(p.stream)],
+        ["Free", yoursFirst(p.free)],
         ["Rent", p.rent],
         ["Buy", p.buy],
       ] as [string, WatchProvider[]][]).filter(([, list]) => list.length > 0)
@@ -55,15 +58,16 @@ export function WhereToWatch({ mediaType, tmdbId }: { mediaType: MediaType; tmdb
                   accessibilityLabel={`${label} on ${provider.name}`}
                 >
                   {provider.logoUrl ? (
-                    <Image source={{ uri: provider.logoUrl }} style={styles.logo} contentFit="cover" />
+                    <Image source={{ uri: provider.logoUrl }} style={[styles.logo, mine.has(provider.id) && styles.logoMine]} contentFit="cover" />
                   ) : (
-                    <View style={[styles.logo, styles.logoFallback]}>
+                    <View style={[styles.logo, styles.logoFallback, mine.has(provider.id) && styles.logoMine]}>
                       <Text style={styles.logoLetter}>{provider.name.slice(0, 1)}</Text>
                     </View>
                   )}
                   <Text style={styles.providerName} numberOfLines={2}>
                     {provider.name}
                   </Text>
+                  {mine.has(provider.id) && <Text style={styles.yours}>Yours</Text>}
                 </Pressable>
               ))}
             </ScrollView>
@@ -71,6 +75,14 @@ export function WhereToWatch({ mediaType, tmdbId }: { mediaType: MediaType; tmdb
         ))
       ) : (
         <Muted>Not available to stream, rent, or buy in {countryName(country)} right now.</Muted>
+      )}
+
+      {user && mine.size === 0 && groups.length > 0 && (
+        <Pressable onPress={() => router.push("/services")} hitSlop={8}>
+          <Text style={styles.credit}>
+            <Text style={{ color: colors.brand }}>Add your services</Text> to see what you can watch right away
+          </Text>
+        </Pressable>
       )}
 
       {groups.length > 0 && (
@@ -90,6 +102,8 @@ const styles = StyleSheet.create({
   label: { color: colors.muted, fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.6 },
   provider: { width: 64, alignItems: "center", gap: 4 },
   logo: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.panel2 },
+  logoMine: { borderWidth: 2, borderColor: colors.liked },
+  yours: { color: colors.liked, fontSize: 10, fontWeight: "800" },
   logoFallback: { alignItems: "center", justifyContent: "center" },
   logoLetter: { color: colors.text, fontWeight: "800" },
   providerName: { color: colors.text, fontSize: 10, textAlign: "center" },

@@ -91,6 +91,11 @@ export const catalogRoutes = new Hono<OptionalAuthVars>()
     return c.json({ regions: await catalog.regions() });
   })
 
+  .get("/services", validate("query", z.object({ country: countryCodeSchema })), async (c) => {
+    c.header("Cache-Control", CACHE_PUBLIC);
+    return c.json({ services: await catalog.streamingServices(c.req.valid("query").country) });
+  })
+
   .get(
     "/:type/:tmdbId/providers",
     validate("param", z.object({ type: mediaTypeSchema, tmdbId: z.coerce.number().int().positive() })),

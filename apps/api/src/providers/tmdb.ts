@@ -197,6 +197,20 @@ export const tmdbCatalog: CatalogProvider = {
       .sort((a, b) => a.name.localeCompare(b.name));
   },
 
+  async streamingServices(country) {
+    type Row = TmdbProvider & { display_priorities?: Record<string, number> };
+    const lists = await Promise.all(
+      (["movie", "tv"] as const).map((type) =>
+        tmdb<{ results: Row[] }>(`/watch/providers/${type}`, { watch_region: country, language: "en-US" }, CATALOG),
+      ),
+    );
+    // Order by the country's own ranking (Netflix before niche services), falling back to the global one.
+    const rows = lists
+      .flatMap((l) => l.results ?? [])
+      .map((r) => ({ ...r, display_priority: r.display_priorities?.[country] ?? r.display_priority }));
+    return toProviders(rows);
+  },
+
   async season(tvId, season) {
     const d = await tmdb<{
       episodes: { season_number: number; episode_number: number; name: string; air_date: string | null; still_path: string | null }[];

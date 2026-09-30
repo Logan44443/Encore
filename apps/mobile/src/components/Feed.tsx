@@ -88,6 +88,11 @@ export function FeedCard({ item, width = 132, onDismiss }: { item: FeedItem; wid
         <Text style={styles.reason} numberOfLines={2}>
           {reasonText(item.reason)}
         </Text>
+        {item.onServices.length > 0 && (
+          <Text style={styles.onServices} numberOfLines={1}>
+            On {item.onServices.map((s) => s.name).join(", ")}
+          </Text>
+        )}
       </Pressable>
       <Pressable onPress={onDismiss} hitSlop={8} style={styles.dismiss}>
         <Text style={styles.dismissText}>Not interested</Text>
@@ -113,6 +118,7 @@ const styles = StyleSheet.create({
   name: { color: colors.text, marginTop: 6, fontWeight: "700", fontSize: 13 },
   meta: { color: colors.muted, fontSize: 11 },
   reason: { color: colors.brand, fontSize: 11, marginTop: 3, fontWeight: "600", lineHeight: 14 },
+  onServices: { color: colors.liked, fontSize: 11, marginTop: 3, fontWeight: "700" },
   dismiss: { marginTop: 6, alignSelf: "flex-start" },
   dismissText: { color: colors.muted, fontSize: 11, textDecorationLine: "underline" },
   type: { position: "absolute", top: 6, left: 6, backgroundColor: "rgba(11,11,15,0.85)", borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },

@@ -155,6 +155,13 @@ Mobile screen: `apps/mobile/app/picks.tsx`. The tab is kept in the `?tab=` URL p
 - **Privacy:** only the two-letter code is stored. Public profiles use a `PublicUser` type that leaves out the country.
 - **Required credit:** the title page shows "Streaming data from JustWatch", as TMDB's terms require for this data.
 
+### My services
+
+- Profile → **My services** lists the streaming services in the user's country (`GET /catalog/services`, TMDB's provider list for movies and TV combined). Tapping one saves the whole list to `users.services` (TMDB provider ids, migration `0009_user_services.sql`).
+- **Feed:** the 60 best candidates are checked against the user's services in their country, using the same cached watch-provider data as title pages. Streamable ones (stream or free) score 20% + 0.5 higher and carry `onServices`, shown as "On Netflix" on feed cards and in Picks → "Recommended for you". Changing services or country clears the user's cached feed.
+- **Where to watch:** the user's services are listed first with a green outline and "Yours".
+- Services are private: public profiles don't include them.
+
 ### Setlist import
 
 1. The performer search hits MusicBrainz (falling back to Deezer) and returns each artist's MusicBrainz ID.
@@ -193,6 +200,8 @@ Earlier migrations (`0000`–`0003`) are the original web app: titles, entries, 
 | `GET /catalog/:type/:tmdbId/providers?country=` | Where to watch in a country |
 | `GET /catalog/regions` | Countries with streaming data |
 | `PUT /auth/me/country` | `{ country, manual, reset? }` |
+| `PUT /auth/me/services` | `{ providerIds }` — "My services", replaces the saved list (auth) |
+| `GET /catalog/services?country=` | Streaming services in a country, most popular first |
 | `POST /auth/register` | Now accepts an optional `country` |
 | `GET /auth/me` etc. | `User` now includes `country` and `countryManual` |
 
@@ -231,7 +240,7 @@ The API already serves all of it. Porting is client work in `apps/web`, reusing 
 - "Not interested" only affects the feed and Picks → "Picked for you". Dismissed titles can still appear in Discover charts and the other Picks lists.
 - The "people with your taste" signal needs other users with overlapping likes. With one account, the feed runs on "more like this", genres and the watchlist.
 - Other users' feeds can be up to 15 minutes stale after someone else ranks something.
-- Live shows aren't in the feed; streaming services aren't shown on feed cards; there's no "My services" filter yet.
+- Live shows aren't in the feed.
 - Setlist search:
   - The date is a typed `YYYY-MM-DD` field, and a malformed date returns an error instead of results.
   - With no date, only the 20 newest setlists show, with no "load more".
@@ -297,6 +306,5 @@ The decision so far: **keep the Hono API and use Supabase (or Neon) only as mana
 3. Deploy: managed Postgres, API host, Vercel, TestFlight.
 4. Add the TMDB attribution and a setlist.fm key.
 5. Expand setlist import: a date picker, "load more", and multiple performers at once.
-6. Add "My services": show "On Netflix" on feed cards and favour titles the user can watch.
 7. Add live shows to the recommended feed (artists similar to ones you rated highly, upcoming shows).
 8. Write API tests for season ranking, feed exclusions and country rules.

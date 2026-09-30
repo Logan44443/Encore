@@ -12,6 +12,7 @@ import type {
   RerankEntryInput,
   RerankSeasonEntryInput,
   UpdateCountryInput,
+  UpdateServicesInput,
   UpdateEntryInput,
   UpdateLiveShowInput,
 } from "./schemas";
@@ -39,6 +40,7 @@ import type {
   Title,
   User,
   WatchlistItem,
+  WatchProvider,
   WatchProviders,
 } from "./types";
 
@@ -121,6 +123,7 @@ export function createApiClient({
       login: (body: LoginInput) => request<AuthResponse>("POST", p("/auth/login"), { body }),
       me: () => request<{ user: User }>("GET", p("/auth/me")),
       setCountry: (body: UpdateCountryInput) => request<{ user: User }>("PUT", p("/auth/me/country"), { body }),
+      setServices: (body: UpdateServicesInput) => request<{ user: User }>("PUT", p("/auth/me/services"), { body }),
     },
 
     passwordReset: {
@@ -155,6 +158,9 @@ export function createApiClient({
         request<{ providers: WatchProviders | null }>("GET", p(`/catalog/${type}/${tmdbId}/providers`), { query: { country } }),
       /** Countries with streaming data, for the country picker. */
       regions: () => request<{ regions: Region[] }>("GET", p("/catalog/regions")),
+      /** Streaming services available in a country, most popular first, for "My services". */
+      services: (country: string) =>
+        request<{ services: WatchProvider[] }>("GET", p("/catalog/services"), { query: { country } }),
       /** Personal "Recommended for you" feed across movies and TV (signed in only). */
       feed: () => request<Feed>("GET", p("/catalog/feed")),
       /** "Not interested": hides the title and weakens similar picks. */

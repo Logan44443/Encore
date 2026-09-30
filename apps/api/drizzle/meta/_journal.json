@@ -64,6 +64,13 @@
       "when": 1790767987395,
       "tag": "0008_user_set_scores",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790777377522,
+      "tag": "0009_user_services",
+      "breakpoints": true
     }
   ]
 }
