@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 import { api } from "@/api";
 import { useAuth } from "@/auth";
+import { DateField } from "@/components/DateField";
 import { Poster } from "@/components/Poster";
 import { EpisodeField, RankSheet, watchedAtError, type EntryDetails } from "@/components/RankSheet";
 import { SeasonSheet } from "@/components/SeasonRank";
@@ -236,13 +237,7 @@ function EntryCard({
             placeholder="Your thoughts"
             placeholderTextColor={colors.muted}
           />
-          <TextInput
-            style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 12, color: colors.text, padding: 12 }}
-            value={editing.watchedAt}
-            onChangeText={(watchedAt) => onChange({ ...editing, watchedAt })}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.muted}
-          />
+          <DateField label="Watched on" value={editing.watchedAt} onChange={(watchedAt) => onChange({ ...editing, watchedAt })} noFuture />
           {title.mediaType === "tv" && title.seasons.length > 0 && (
             <>
               <EpisodeField label="Favorite episode" tmdbId={title.tmdbId} seasons={title.seasons} value={editing.favoriteEpisode} onChange={(favoriteEpisode) => onChange({ ...editing, favoriteEpisode })} />

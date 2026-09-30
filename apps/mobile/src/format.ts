@@ -47,8 +47,18 @@ export function daysUntil(iso: string) {
   return Math.round(ms / 86_400_000);
 }
 
-/** Today's date in the phone's time zone as YYYY-MM-DD (toISOString would give the UTC date). */
-export function localToday() {
-  const d = new Date();
+/** A Date's calendar day in the phone's time zone as YYYY-MM-DD (toISOString would give the UTC date). */
+export function toLocalIsoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Today's date in the phone's time zone as YYYY-MM-DD. */
+export function localToday() {
+  return toLocalIsoDate(new Date());
+}
+
+/** Local midnight on a YYYY-MM-DD day (new Date("YYYY-MM-DD") would parse it as UTC). */
+export function fromLocalIsoDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
