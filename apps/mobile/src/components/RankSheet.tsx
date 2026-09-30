@@ -1,5 +1,7 @@
 import {
+  SET_SCORE_BELOW,
   TIER_LABELS,
+  TIER_RANGES,
   TIERS,
   answerComparison,
   genreName,
@@ -27,10 +29,11 @@ import { formatEpisode, localToday } from "../format";
 import { colors, tierColor } from "../theme";
 import { DateField } from "./DateField";
 import { Poster } from "./Poster";
+import { ScoreSlider } from "./ScoreSlider";
 import { SeasonRank } from "./SeasonRank";
 import { Button, Chip, ErrorText, Loading, Muted, ScoreBadge } from "./ui";
 
-type Step = "genre" | "tier" | "compare" | "details" | "seasons" | "done";
+type Step = "genre" | "tier" | "compare" | "score" | "details" | "seasons" | "done";
 
 export interface EntryDetails {
   review: string;
@@ -65,6 +68,8 @@ export function RankSheet({
   const [genreId, setGenreId] = useState(existing?.genreId ?? genreOptions[0].id);
   const [tier, setTier] = useState<Tier | null>(null);
   const [cmp, setCmp] = useState<ComparisonState | null>(null);
+  /** Score set with the slider; only used while the list is too small to compare against. */
+  const [score, setScore] = useState<number | null>(null);
   const [details, setDetails] = useState<EntryDetails>(emptyDetails);
   const [result, setResult] = useState<EntryResult | null>(null);
   const queryClient = useQueryClient();
@@ -73,7 +78,7 @@ export function RankSheet({
   const candidatesQuery = useQuery({
     queryKey: ["candidates", title.mediaType, genreId, tier, existing?.id],
     queryFn: () => api.entries.candidates({ mediaType: title.mediaType, genreId, tier: tier!, excludeEntryId: existing?.id }),
-    enabled: step === "compare" && tier !== null,
+    enabled: (step === "compare" || step === "score") && tier !== null,
     staleTime: 0,
     gcTime: 0,
   });
@@ -94,14 +99,16 @@ export function RankSheet({
   const save = useMutation({
     mutationFn: async (state: ComparisonState | null) => {
       const index = state ? insertionIndex(state) : 0;
-      const aboveEntryId = index === 0 ? null : candidates[index - 1].entryId;
-      if (existing) return api.entries.rerank(existing.id, { genreId, tier: tier!, aboveEntryId });
+      // With a slider score the API places the title itself.
+      const aboveEntryId = score !== null || index === 0 ? null : candidates[index - 1].entryId;
+      if (existing) return api.entries.rerank(existing.id, { genreId, tier: tier!, aboveEntryId, score });
       return api.entries.create({
         mediaType: title.mediaType,
         tmdbId: title.tmdbId,
         genreId,
         tier: tier!,
         aboveEntryId,
+        score,
         review: details.review.trim() || null,
         watchedAt: details.watchedAt.trim() || null,
         favoriteEpisode: details.favoriteEpisode,
@@ -119,17 +126,16 @@ export function RankSheet({
   useEffect(() => {
     if (step !== "compare" || !candidatesQuery.data || cmp) return;
     const list = candidatesQuery.data.candidates;
-    if (list.length === 0) {
-      const empty = startComparison(0);
-      setCmp(empty);
-      if (existing) save.mutate(empty);
-      else setStep("details");
+    if (list.length < SET_SCORE_BELOW) {
+      // Too few titles to compare against yet: you set the score yourself.
+      const { min, max } = TIER_RANGES[tier!];
+      setCmp(startComparison(0));
+      setScore(list[0]?.score ?? Math.round(((min + max) / 2) * 10) / 10);
+      setStep("score");
     } else {
       setCmp(startComparison(list.length));
     }
-    // save.mutate is stable enough; including `save` retriggers this after success.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, candidatesQuery.data, cmp, existing]);
+  }, [step, candidatesQuery.data, cmp, tier]);
 
   const answer = (a: ComparisonAnswer) => {
     if (!cmp) return;
@@ -182,6 +188,7 @@ export function RankSheet({
                 onPress={() => {
                   setTier(t);
                   setCmp(null);
+                  setScore(null);
                   setStep("compare");
                 }}
                 style={[styles.tier, { borderColor: tierColor[t] }]}
@@ -211,6 +218,38 @@ export function RankSheet({
                 <Button label="Too close to call" tone="ghost" onPress={() => answer("tie")} />
               </>
             )}
+          </View>
+        )}
+
+        {step === "score" && tier && score !== null && (
+          <View style={{ gap: 12 }}>
+            <Text style={styles.h2}>What would you give it?</Text>
+            <Muted>
+              {candidates.length === 0
+                ? `It's your first ${genre.toLowerCase()} title under "${TIER_LABELS[tier]}", so you pick the score.`
+                : `It's your second ${genre.toLowerCase()} title under "${TIER_LABELS[tier]}", so you pick this one too. After that, new ones get ranked by comparing.`}
+            </Muted>
+            <View style={{ alignItems: "center", paddingVertical: 8 }}>
+              <ScoreBadge score={score} color={tierColor[tier]} size={80} />
+            </View>
+            <ScoreSlider
+              value={score}
+              min={TIER_RANGES[tier].min}
+              max={TIER_RANGES[tier].max}
+              color={tierColor[tier]}
+              onChange={setScore}
+            />
+            {candidates[0] && (
+              <Muted>
+                For reference: {candidates[0].title.name} is {candidates[0].score.toFixed(1)}
+              </Muted>
+            )}
+            <ErrorText error={save.error} />
+            <Button
+              label={existing ? (save.isPending ? "Saving…" : "Save ranking") : "Continue"}
+              disabled={save.isPending}
+              onPress={() => (existing ? save.mutate(cmp) : setStep("details"))}
+            />
           </View>
         )}
 
@@ -284,6 +323,7 @@ export function RankSheet({
                     tone="ghost"
                     onPress={() => {
                       setCmp(null);
+                      setScore(null);
                       setStep("tier");
                       save.reset();
                     }}

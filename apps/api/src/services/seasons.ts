@@ -1,5 +1,5 @@
 import {
-  TIER_RANGES,
+  scoreList,
   type CreateSeasonEntryInput,
   type RerankSeasonEntryInput,
   type SeasonEntry,
@@ -88,17 +88,23 @@ async function renormalize(tx: Executor, key: ListKey) {
     WHERE e.id = s.id`);
 }
 
-/** Single-statement rescore of one season list; mirrors `scoreFor` in @encore/shared. */
+/** Rescore one season list with `scoreList` from @encore/shared, in one UPDATE. */
 async function recomputeScores(tx: Executor, key: ListKey) {
-  const { min, max } = TIER_RANGES[key.tier];
+  const rows = await tx
+    .select({ id: seasonEntries.id })
+    .from(seasonEntries)
+    .where(inList(key))
+    .orderBy(asc(seasonEntries.position));
+  if (rows.length === 0) return;
+  const scores = scoreList(key.tier, rows.map(() => null));
+  const values = sql.join(
+    rows.map((r, i) => sql`(${r.id}::uuid, ${scores[i]}::real)`),
+    sql`, `,
+  );
   await tx.execute(sql`
-    UPDATE season_entries AS e
-    SET score = ROUND((${min}::numeric + (${max}::numeric - ${min}::numeric) * (s.n - s.idx) / s.n), 1)
-    FROM (
-      SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 AS idx, COUNT(*) OVER () AS n FROM season_entries
-      WHERE user_id = ${key.userId} AND title_id = ${key.titleId} AND tier = ${key.tier}
-    ) AS s
-    WHERE e.id = s.id`);
+    UPDATE season_entries AS e SET score = v.score
+    FROM (VALUES ${values}) AS v(id, score)
+    WHERE e.id = v.id`);
 }
 
 const columns = {

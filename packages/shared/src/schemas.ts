@@ -70,6 +70,11 @@ export const createEntrySchema = z.object({
   tier: tierSchema,
   /** Entry that should sit directly above the new one; null = top of the list. */
   aboveEntryId: z.uuid().nullable(),
+  /**
+   * Score you set yourself with the slider, only allowed while the list has fewer
+   * than SET_SCORE_BELOW other titles. The API places the title by it and ignores aboveEntryId.
+   */
+  score: z.number().min(0).max(10).nullish(),
   review: optionalText(5000),
   favoriteEpisode: episodeRefSchema.nullish(),
   leastFavoriteEpisode: episodeRefSchema.nullish(),
@@ -84,6 +89,8 @@ export const rerankEntrySchema = z.object({
   genreId: z.number().int(),
   tier: tierSchema,
   aboveEntryId: z.uuid().nullable(),
+  /** Same as on create. Re-ranking by comparison instead clears a score you set. */
+  score: z.number().min(0).max(10).nullish(),
 });
 
 /** Rank one season of a show against the other seasons of that same show. */

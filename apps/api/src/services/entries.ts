@@ -1,7 +1,9 @@
 import {
+  SET_SCORE_BELOW,
+  TIER_RANGES,
   genreName,
   genresFor,
-  TIER_RANGES,
+  scoreList,
   type CreateEntryInput,
   type Entry,
   type EntryResult,
@@ -91,17 +93,47 @@ async function renormalize(tx: Executor, key: ListKey) {
     WHERE e.id = s.id`);
 }
 
-/** Single-statement rescore of one list; mirrors `scoreFor` in @encore/shared. */
+/** Rescore one list with `scoreList` from @encore/shared, in one UPDATE. */
 async function recomputeScores(tx: Executor, key: ListKey) {
-  const { min, max } = TIER_RANGES[key.tier];
+  const rows = await tx
+    .select({ id: titleEntries.id, userScore: titleEntries.userScore })
+    .from(titleEntries)
+    .where(inList(key))
+    .orderBy(asc(titleEntries.position));
+  if (rows.length === 0) return;
+  const scores = scoreList(key.tier, rows.map((r) => r.userScore));
+  const values = sql.join(
+    rows.map((r, i) => sql`(${r.id}::uuid, ${scores[i]}::real)`),
+    sql`, `,
+  );
   await tx.execute(sql`
-    UPDATE title_entries AS e
-    SET score = ROUND((${min}::numeric + (${max}::numeric - ${min}::numeric) * (s.n - s.idx) / s.n), 1)
-    FROM (
-      SELECT id, ROW_NUMBER() OVER (ORDER BY position) - 1 AS idx, COUNT(*) OVER () AS n FROM title_entries
-      WHERE user_id = ${key.userId} AND media_type = ${key.mediaType} AND genre_id = ${key.genreId} AND tier = ${key.tier}
-    ) AS s
-    WHERE e.id = s.id`);
+    UPDATE title_entries AS e SET score = v.score
+    FROM (VALUES ${values}) AS v(id, score)
+    WHERE e.id = v.id`);
+}
+
+/**
+ * For a score set with the slider: check it's allowed for this list and return
+ * the entry it should sit under (by current score), or null for the top.
+ */
+async function placeBySetScore(tx: Executor, key: ListKey, score: number, excludeId?: string): Promise<string | null> {
+  const { min, max } = TIER_RANGES[key.tier];
+  if (score < min || score > max) {
+    throw new HTTPException(400, { message: `Pick a score between ${min} and ${max} for this reaction` });
+  }
+  const others = await tx
+    .select({ id: titleEntries.id, score: titleEntries.score })
+    .from(titleEntries)
+    .where(inList(key, excludeId))
+    .orderBy(asc(titleEntries.position));
+  if (others.length >= SET_SCORE_BELOW) {
+    throw new HTTPException(409, { message: "This list is big enough to compare instead — please rank it again" });
+  }
+  return others.filter((o) => o.score >= score).at(-1)?.id ?? null;
+}
+
+function roundScore(score: number | null | undefined): number | null {
+  return score == null ? null : Math.round(score * 10) / 10;
 }
 
 const entryColumns = {
@@ -204,7 +236,9 @@ export async function createEntry(userId: string, input: CreateEntryInput): Prom
       .where(and(eq(titleEntries.userId, userId), eq(titleEntries.titleId, title.id)));
     if (dupe) throw new HTTPException(409, { message: "You've already ranked this — re-rank it instead" });
 
-    const position = await positionFor(tx, key, input.aboveEntryId);
+    const userScore = roundScore(input.score);
+    const aboveEntryId = userScore === null ? input.aboveEntryId : await placeBySetScore(tx, key, userScore);
+    const position = await positionFor(tx, key, aboveEntryId);
     const [inserted] = await tx
       .insert(titleEntries)
       .values({
@@ -215,6 +249,7 @@ export async function createEntry(userId: string, input: CreateEntryInput): Prom
         tier: input.tier,
         position,
         score: 0,
+        userScore,
         review: input.review ?? null,
         favoriteEpisode: input.mediaType === "tv" ? (input.favoriteEpisode ?? null) : null,
         leastFavoriteEpisode: input.mediaType === "tv" ? (input.leastFavoriteEpisode ?? null) : null,
@@ -235,10 +270,13 @@ export async function rerankEntry(userId: string, id: string, input: RerankEntry
     const oldKey: ListKey = { userId, mediaType: current.title.mediaType, genreId: current.genreId, tier: current.tier };
     const newKey: ListKey = { ...oldKey, genreId: input.genreId, tier: input.tier };
 
-    const position = await positionFor(tx, newKey, input.aboveEntryId, id);
+    const userScore = roundScore(input.score);
+    const aboveEntryId = userScore === null ? input.aboveEntryId : await placeBySetScore(tx, newKey, userScore, id);
+    if (aboveEntryId === id) throw new HTTPException(400, { message: "An entry can't sit above itself" });
+    const position = await positionFor(tx, newKey, aboveEntryId, id);
     await tx
       .update(titleEntries)
-      .set({ genreId: newKey.genreId, tier: newKey.tier, position })
+      .set({ genreId: newKey.genreId, tier: newKey.tier, position, userScore })
       .where(eq(titleEntries.id, id));
     await recomputeScores(tx, newKey);
     if (oldKey.genreId !== newKey.genreId || oldKey.tier !== newKey.tier) await recomputeScores(tx, oldKey);
