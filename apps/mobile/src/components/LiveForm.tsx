@@ -1,4 +1,5 @@
 import {
+  isValidIsoDate,
   PERFORMER_ROLES,
   SHOW_KIND_LABELS,
   type Performer,
@@ -168,7 +169,9 @@ export function LiveForm({
                 ))}
               </View>
             )}
-            {slot?.performer.mbid && <SetlistImporter mbid={slot.performer.mbid} date={v.date} onPick={(s) => applySetlist(active, s)} />}
+            {slot?.performer.mbid && (
+              <SetlistImporter key={slot.performer.mbid} mbid={slot.performer.mbid} date={v.date} onPick={(s) => applySetlist(active, s)} />
+            )}
             {slot && <SongEditor songs={slot.songs} onChange={(songs) => setLineup(v.lineup.map((x, j) => (j === active ? { ...x, songs } : x)))} />}
           </>
         )}
@@ -243,8 +246,10 @@ export function PerformerSearch({ onSelect }: { onSelect: (p: Performer) => void
   );
 }
 
-function SetlistImporter({ mbid, date, onPick }: { mbid: string; date: string; onPick: (s: SetlistSummary) => void }) {
+function SetlistImporter({ mbid, date: typed, onPick }: { mbid: string; date: string; onPick: (s: SetlistSummary) => void }) {
   const [open, setOpen] = useState(false);
+  // Half-typed or impossible dates are ignored rather than sent (the server would reject them).
+  const date = isValidIsoDate(typed.trim()) ? typed.trim() : "";
   const { data, isFetching, error } = useQuery({
     queryKey: ["setlists", mbid, date],
     queryFn: () => api.music.setlists(mbid, date ? { date } : {}),

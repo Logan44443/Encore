@@ -1,4 +1,5 @@
 import {
+  isValidIsoDate,
   SHOW_KINDS,
   type CreateLiveShowInput,
   type LiveShow,
@@ -7,6 +8,7 @@ import {
   type ShowKind,
   type SongReaction,
 } from "@encore/shared";
+import { localToday } from "./format";
 
 export interface SongDraft {
   title: string;
@@ -68,13 +70,8 @@ export function validateLiveForm(v: LiveShowFormValues): LiveFormErrors {
   if (!v.kind) errors.kind = "Pick what kind of show it was";
   if (v.lineup.length === 0) errors.lineup = "Add at least one performer";
   if (v.rating === null) errors.rating = "Slide to rate the show";
-  if (v.date.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(v.date.trim())) errors.date = "Use YYYY-MM-DD, or leave it blank for today";
+  if (v.date.trim() && !isValidIsoDate(v.date.trim())) errors.date = "Use a real date as YYYY-MM-DD, or leave it blank for today";
   return errors;
-}
-
-function today() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function showToForm(s?: LiveShow): LiveShowFormValues {
@@ -108,7 +105,7 @@ export function formToPayload(v: LiveShowFormValues): CreateLiveShowInput {
   return {
     kind: v.kind ?? "other",
     name: nameLabel(v.kind) ? text(v.name) : null,
-    date: v.date.trim() || today(),
+    date: v.date.trim() || localToday(),
     venue: v.venueName.trim()
       ? {
           name: v.venueName.trim(),

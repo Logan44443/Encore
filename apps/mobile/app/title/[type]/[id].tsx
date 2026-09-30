@@ -6,7 +6,7 @@ import { Alert, Pressable, Text, TextInput, View } from "react-native";
 import { api } from "@/api";
 import { useAuth } from "@/auth";
 import { Poster } from "@/components/Poster";
-import { EpisodeField, RankSheet, type EntryDetails } from "@/components/RankSheet";
+import { EpisodeField, RankSheet, watchedAtError, type EntryDetails } from "@/components/RankSheet";
 import { SeasonSheet } from "@/components/SeasonRank";
 import { Button, Chip, ErrorText, H1, Loading, Muted, ScoreBadge, Screen } from "@/components/ui";
 import { WhereToWatch } from "@/components/WhereToWatch";
@@ -42,7 +42,7 @@ export default function TitleScreen() {
     mutationFn: (d: EntryDetails) =>
       api.entries.update(data!.myEntry!.id, {
         review: d.review.trim() || null,
-        watchedAt: d.watchedAt || null,
+        watchedAt: d.watchedAt.trim() || null,
         favoriteEpisode: d.favoriteEpisode,
         leastFavoriteEpisode: d.leastFavoriteEpisode,
       }),
@@ -56,9 +56,10 @@ export default function TitleScreen() {
   const remove = useMutation({
     mutationFn: () => api.entries.remove(data!.myEntry!.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["title", mediaType, tmdbId] });
-      queryClient.invalidateQueries({ queryKey: ["entries"] });
-      queryClient.invalidateQueries({ queryKey: ["feed"] });
+      setEditing(null);
+      for (const key of ["title", "entries", "feed", "profile", "trending", "top-rated", "recommendations", "genres"]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
     },
   });
   const removeSeason = useMutation({
@@ -150,11 +151,20 @@ export default function TitleScreen() {
                 <Muted>{s.name !== `Season ${s.seasonNumber}` ? s.name : `${s.episodeCount} episodes`}</Muted>
               </View>
               <ScoreBadge score={s.score} color={tierColor[s.tier]} />
-              <Pressable onPress={() => removeSeason.mutate(s.id)}>
+              <Pressable
+                hitSlop={8}
+                onPress={() =>
+                  Alert.alert(`Remove your ${s.seasonNumber === 0 ? s.name : `Season ${s.seasonNumber}`} ranking?`, undefined, [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Remove", style: "destructive", onPress: () => removeSeason.mutate(s.id) },
+                  ])
+                }
+              >
                 <Text style={{ color: colors.disliked, fontWeight: "700" }}>✕</Text>
               </Pressable>
             </Pressable>
           ))}
+          <ErrorText error={removeSeason.error} />
           {title.seasons.length > 0 && (
             <Button label={seasons.data?.seasons.length ? "Rank another season" : "Rank a season"} tone="ghost" onPress={() => { setRerankSeason(null); setSeasonMode("one"); }} />
           )}
@@ -239,8 +249,9 @@ function EntryCard({
               <EpisodeField label="Least favorite episode" tmdbId={title.tmdbId} seasons={title.seasons} value={editing.leastFavoriteEpisode} onChange={(leastFavoriteEpisode) => onChange({ ...editing, leastFavoriteEpisode })} />
             </>
           )}
+          {watchedAtError(editing.watchedAt) ? <ErrorText error={new Error(watchedAtError(editing.watchedAt)!)} /> : null}
           <ErrorText error={error} />
-          <Button label="Save" disabled={pending} onPress={onSave} />
+          <Button label="Save" disabled={pending || Boolean(watchedAtError(editing.watchedAt))} onPress={onSave} />
           <Button label="Cancel" tone="ghost" onPress={onCancel} />
           <Button label="Remove" tone="danger" onPress={onRemove} />
         </View>

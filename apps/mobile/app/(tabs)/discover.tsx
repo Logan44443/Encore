@@ -74,6 +74,8 @@ export default function Discover() {
           />
         </>
       )}
+      {/* Required by TMDB's API terms wherever their data is shown. */}
+      <Muted>This product uses the TMDB API but is not endorsed or certified by TMDB.</Muted>
     </Screen>
   );
 }

@@ -27,12 +27,15 @@ export class TtlCache<V> {
     }
   }
 
+  /** Also forgets any load in flight, so a result computed before the change is never cached. */
   delete(key: string) {
     this.map.delete(key);
+    this.inflight.delete(key);
   }
 
   clear() {
     this.map.clear();
+    this.inflight.clear();
   }
 
   /** Caches the resolved value and de-duplicates concurrent requests for the same key. */
@@ -42,12 +45,15 @@ export class TtlCache<V> {
     if (cached !== undefined) return cached;
     const pending = this.inflight.get(key);
     if (pending) return pending;
-    const promise = load()
+    const promise: Promise<V> = load()
       .then((value) => {
-        this.set(key, value, ttlMs);
+        // Skip caching if the key was invalidated while this load was running.
+        if (this.inflight.get(key) === promise) this.set(key, value, ttlMs);
         return value;
       })
-      .finally(() => this.inflight.delete(key));
+      .finally(() => {
+        if (this.inflight.get(key) === promise) this.inflight.delete(key);
+      });
     this.inflight.set(key, promise);
     return promise;
   }

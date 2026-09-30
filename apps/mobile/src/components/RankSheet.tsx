@@ -5,6 +5,7 @@ import {
   genreName,
   genresFor,
   insertionIndex,
+  isValidIsoDate,
   maxComparisons,
   nextComparisonIndex,
   startComparison,
@@ -22,7 +23,7 @@ import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
-import { formatEpisode } from "../format";
+import { formatEpisode, localToday } from "../format";
 import { colors, tierColor } from "../theme";
 import { Poster } from "./Poster";
 import { SeasonRank } from "./SeasonRank";
@@ -38,7 +39,13 @@ export interface EntryDetails {
 }
 
 function emptyDetails(): EntryDetails {
-  return { review: "", watchedAt: new Date().toISOString().slice(0, 10), favoriteEpisode: null, leastFavoriteEpisode: null };
+  return { review: "", watchedAt: localToday(), favoriteEpisode: null, leastFavoriteEpisode: null };
+}
+
+/** Message for a bad "watched on" date, or null when it's blank or valid. */
+export function watchedAtError(value: string): string | null {
+  const v = value.trim();
+  return v && !isValidIsoDate(v) ? "Use a real date as YYYY-MM-DD, or leave it blank" : null;
 }
 
 export function RankSheet({
@@ -50,7 +57,9 @@ export function RankSheet({
   existing?: Entry | null;
   onClose: () => void;
 }) {
-  const genreOptions = title.genres.length > 0 ? title.genres : genresFor(title.mediaType);
+  // Only genres the API ranks in; a catalog genre outside the list would be rejected on save.
+  const known = title.genres.filter((g) => genresFor(title.mediaType).some((k) => k.id === g.id));
+  const genreOptions = known.length > 0 ? known : genresFor(title.mediaType);
   const [step, setStep] = useState<Step>(genreOptions.length === 1 && !existing ? "tier" : "genre");
   const [genreId, setGenreId] = useState(existing?.genreId ?? genreOptions[0].id);
   const [tier, setTier] = useState<Tier | null>(null);
@@ -93,7 +102,7 @@ export function RankSheet({
         tier: tier!,
         aboveEntryId,
         review: details.review.trim() || null,
-        watchedAt: details.watchedAt || null,
+        watchedAt: details.watchedAt.trim() || null,
         favoriteEpisode: details.favoriteEpisode,
         leastFavoriteEpisode: details.leastFavoriteEpisode,
       });
@@ -244,8 +253,13 @@ export function RankSheet({
                 />
               </>
             )}
+            {watchedAtError(details.watchedAt) ? <ErrorText error={new Error(watchedAtError(details.watchedAt)!)} /> : null}
             <ErrorText error={save.error} />
-            <Button label={save.isPending ? "Saving…" : "Save ranking"} disabled={save.isPending} onPress={() => save.mutate(cmp)} />
+            <Button
+              label={save.isPending ? "Saving…" : "Save ranking"}
+              disabled={save.isPending || Boolean(watchedAtError(details.watchedAt))}
+              onPress={() => save.mutate(cmp)}
+            />
           </View>
         )}
 

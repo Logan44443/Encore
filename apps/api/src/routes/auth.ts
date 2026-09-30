@@ -5,7 +5,17 @@ import { HTTPException } from "hono/http-exception";
 import { db } from "../db/client";
 import { users } from "../db/schema";
 import { hashPassword, requireAuth, signToken, verifyPassword, type AuthVars } from "../lib/auth";
+import { clientIp, RateLimiter, tooMany } from "../lib/rate-limit";
 import { validate } from "../lib/validate";
+
+const MINUTE = 60_000;
+/** Password guessing: per IP, and per account so rotating IPs can't hammer one user. */
+const loginByIp = new RateLimiter(30, 15 * MINUTE);
+const loginByAccount = new RateLimiter(10, 15 * MINUTE);
+const registerByIp = new RateLimiter(10, 60 * MINUTE);
+
+/** Verified against when the account doesn't exist, so a miss takes as long as a wrong password. */
+const dummyHash = hashPassword("encore-timing-equaliser");
 
 const toUser = (u: typeof users.$inferSelect): User => ({
   id: u.id,
@@ -17,6 +27,8 @@ const toUser = (u: typeof users.$inferSelect): User => ({
 
 export const authRoutes = new Hono<AuthVars>()
   .post("/register", validate("json", registerSchema), async (c) => {
+    const wait = registerByIp.hit(clientIp(c));
+    if (wait > 0) tooMany(wait);
     const body = c.req.valid("json");
     const email = body.email.toLowerCase();
     const taken = await db.query.users.findFirst({
@@ -43,10 +55,14 @@ export const authRoutes = new Hono<AuthVars>()
   .post("/login", validate("json", loginSchema), async (c) => {
     const { login, password } = c.req.valid("json");
     const key = login.toLowerCase();
+    const wait = Math.max(loginByIp.hit(clientIp(c)), loginByAccount.hit(key));
+    if (wait > 0) tooMany(wait);
     const user = await db.query.users.findFirst({ where: or(eq(users.email, key), eq(users.username, key)) });
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    const ok = await verifyPassword(password, user?.passwordHash ?? (await dummyHash));
+    if (!user || !ok) {
       throw new HTTPException(401, { message: "Invalid credentials" });
     }
+    loginByAccount.reset(key);
     return c.json({ token: await signToken(user.id), user: toUser(user) });
   })
 
