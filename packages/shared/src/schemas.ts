@@ -20,15 +20,20 @@ const httpsImageUrl = z
   .transform((v) => (v && /^https:\/\/[^\s]+$/i.test(v) && URL.canParse(v) ? v : null));
 const optionalText = (max: number) => z.string().trim().max(max).nullish();
 
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9_]{3,24}$/, "3–24 characters: letters, numbers, underscores");
+export const displayNameSchema = z.string().trim().min(1, "Enter a name").max(60);
+/** Same rule everywhere a password is set: sign-up, change, reset. */
+export const newPasswordSchema = z.string().min(8, "Use at least 8 characters").max(200);
+
 export const registerSchema = z.object({
   email: z.email().max(254),
-  username: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9_]{3,24}$/, "3–24 characters: letters, numbers, underscores"),
-  displayName: z.string().trim().min(1).max(60).optional(),
-  password: z.string().min(8).max(200),
+  username: usernameSchema,
+  displayName: displayNameSchema.optional(),
+  password: newPasswordSchema,
   /** Device region at sign-up; ignored if not a valid code. */
   country: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/).optional().catch(undefined),
 });
@@ -197,6 +202,22 @@ export const deleteAccountSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
+/** Settings > Edit profile. Send only what changed. */
+export const updateProfileSchema = z
+  .object({ displayName: displayNameSchema.optional(), username: usernameSchema.optional() })
+  .refine((v) => v.displayName !== undefined || v.username !== undefined, "Nothing to change");
+
+/** The current password is required so a borrowed, unlocked phone can't take over the account. */
+export const changeEmailSchema = z.object({
+  email: z.email().max(254),
+  password: z.string().min(1).max(200),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: newPasswordSchema,
+});
+
 export type RegisterInput = z.input<typeof registerSchema>;
 export type LoginInput = z.input<typeof loginSchema>;
 export type EpisodeRef = z.infer<typeof episodeRefSchema>;
@@ -209,6 +230,9 @@ export type DismissTitleInput = z.input<typeof dismissTitleSchema>;
 export type UpdateCountryInput = z.input<typeof updateCountrySchema>;
 export type UpdateServicesInput = z.input<typeof updateServicesSchema>;
 export type DeleteAccountInput = z.input<typeof deleteAccountSchema>;
+export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
+export type ChangeEmailInput = z.input<typeof changeEmailSchema>;
+export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
 export type LiveSongInput = z.input<typeof liveSongSchema>;
 export type PerformerRef = z.input<typeof performerRefSchema>;
 export type VenueInput = z.input<typeof venueInputSchema>;

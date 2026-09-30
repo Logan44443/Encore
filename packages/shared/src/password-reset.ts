@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { newPasswordSchema } from "./schemas";
 
 /** Length of the one-time code emailed to the user. */
 export const RESET_CODE_LENGTH = 6;
@@ -13,8 +14,7 @@ export const passwordResetConfirmSchema = z.object({
     .string()
     .trim()
     .regex(new RegExp(`^\\d{${RESET_CODE_LENGTH}}$`), `Enter the ${RESET_CODE_LENGTH}-digit code from the email`),
-  /** Same rule as sign-up. */
-  password: z.string().min(8).max(200),
+  password: newPasswordSchema,
 });
 
 export type PasswordResetRequestInput = z.input<typeof passwordResetRequestSchema>;

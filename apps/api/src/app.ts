@@ -6,7 +6,7 @@ import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 import { env } from "./env";
 import { rateLimit } from "./lib/rate-limit";
-import { rejectSessionsBeforePasswordChange } from "./lib/sessions";
+import { rejectRevokedSessions } from "./lib/sessions";
 import { catalog } from "./providers/catalog";
 import { setlistFmEnabled } from "./providers/setlistfm";
 import { accountRoutes } from "./routes/account";
@@ -28,7 +28,7 @@ export const app = new Hono()
   // Searches fan out to TMDB / MusicBrainz (which allows ~1 request/second in total), so cap them per IP.
   .use("/catalog/search", rateLimit(60, 60_000, "catalog-search"))
   .use("/music/*", rateLimit(40, 60_000, "music"))
-  .use(rejectSessionsBeforePasswordChange)
+  .use(rejectRevokedSessions)
   .get("/", (c) =>
     c.json({
       name: "Encore API",

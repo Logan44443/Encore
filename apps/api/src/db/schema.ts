@@ -41,8 +41,11 @@ export const users = pgTable("users", {
   countryManual: boolean("country_manual").notNull().default(false),
   /** "My services": TMDB watch-provider ids the user subscribes to. */
   services: jsonb("services").$type<number[]>().notNull().default([]),
-  /** Sessions issued before this are rejected (set by password reset). */
-  passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }),
+  /**
+   * Sessions issued before this are rejected. Set by a password change or reset and
+   * by "Sign out of other devices". (The column predates the last of those.)
+   */
+  sessionsRevokedAt: timestamp("password_changed_at", { withTimezone: true }),
   ...timestamps,
 });
 

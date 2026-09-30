@@ -5,6 +5,8 @@ import type {
   CreateEntryInput,
   CreateLiveShowInput,
   CreateSeasonEntryInput,
+  ChangeEmailInput,
+  ChangePasswordInput,
   DeleteAccountInput,
   DismissTitleInput,
   LoginInput,
@@ -12,6 +14,7 @@ import type {
   RerankEntryInput,
   RerankSeasonEntryInput,
   UpdateCountryInput,
+  UpdateProfileInput,
   UpdateServicesInput,
   UpdateEntryInput,
   UpdateLiveShowInput,
@@ -221,6 +224,12 @@ export function createApiClient({
     },
 
     account: {
+      updateProfile: (body: UpdateProfileInput) => request<{ user: User }>("PATCH", p("/account/profile"), { body }),
+      changeEmail: (body: ChangeEmailInput) => request<{ user: User }>("PUT", p("/account/email"), { body }),
+      /** Signs out every other device; the returned token keeps this one signed in. */
+      changePassword: (body: ChangePasswordInput) => request<AuthResponse>("PUT", p("/account/password"), { body }),
+      /** Signs out every other device; the returned token keeps this one signed in. */
+      signOutOthers: () => request<AuthResponse>("POST", p("/account/sign-out-others")),
       /** Permanently deletes the signed-in account and everything it logged. */
       delete: (body: DeleteAccountInput) => request<null>("POST", p("/account/delete"), { body }),
     },

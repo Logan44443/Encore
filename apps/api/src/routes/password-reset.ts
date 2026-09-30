@@ -8,6 +8,7 @@ import { passwordResetCodes, users } from "../db/schema";
 import { env } from "../env";
 import { hashPassword } from "../lib/auth";
 import { mailer } from "../lib/mailer";
+import { revokeSessionsNow } from "../lib/sessions";
 import { clientIp, RateLimiter, tooMany } from "../lib/rate-limit";
 import { validate } from "../lib/validate";
 
@@ -95,8 +96,7 @@ export const passwordResetRoutes = new Hono()
     }
 
     const passwordHash = await hashPassword(password);
-    // Whole seconds, because session tokens record their issue time in seconds (see sessions.ts).
-    const changedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+    const changedAt = revokeSessionsNow();
     const done = await db.transaction(async (tx) => {
       // Deleting the code is what claims it, so the same code can't be used twice in parallel.
       const [claimed] = await tx
@@ -104,7 +104,7 @@ export const passwordResetRoutes = new Hono()
         .where(and(eq(passwordResetCodes.userId, user.id), eq(passwordResetCodes.codeHash, live.codeHash)))
         .returning();
       if (!claimed) return false;
-      await tx.update(users).set({ passwordHash, passwordChangedAt: changedAt }).where(eq(users.id, user.id));
+      await tx.update(users).set({ passwordHash, sessionsRevokedAt: changedAt }).where(eq(users.id, user.id));
       return true;
     });
     if (!done) throw new HTTPException(400, { message: INVALID });

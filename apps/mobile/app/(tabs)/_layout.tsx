@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
+import { Pressable } from "react-native";
 import { useAuth } from "@/auth";
 import { Logo } from "@/components/Logo";
 import { colors } from "@/theme";
 
 export default function TabsLayout() {
   const { user } = useAuth();
+  const router = useRouter();
   return (
     <Tabs
       screenOptions={{
@@ -52,6 +54,11 @@ export default function TabsLayout() {
         options={{
           title: "Profile",
           href: user ? undefined : null,
+          headerRight: () => (
+            <Pressable onPress={() => router.push("/settings")} hitSlop={12} style={{ paddingHorizontal: 16 }} accessibilityLabel="Settings">
+              <Ionicons name="settings-outline" color={colors.text} size={22} />
+            </Pressable>
+          ),
           tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
         }}
       />
