@@ -134,14 +134,14 @@ Same algorithm, one list per user × show × tier. The server checks the season 
 - **"Not interested"** writes to `dismissed_titles` (`POST /catalog/feed/dismiss`); undo is `DELETE /catalog/feed/dismiss`.
 - Live music is **not** in the feed yet.
 
-### Picks tabs
+### Genre filter on Discover
 
 `GET /catalog/recommendations?type&genreId` now also returns:
 
 - `trending`: the same heat × quality formula as the main chart, limited to the genre, topped up from TMDB's most-popular-in-genre list via the new `catalog.popularInGenre`.
 - `forYou`: the user's feed filtered to the genre, added in `routes/catalog.ts`.
 
-Mobile screen: `apps/mobile/app/picks.tsx`. The tab is kept in the `?tab=` URL parameter.
+Mobile: the Discover tab (`apps/mobile/app/(tabs)/discover.tsx`) has a row of genre chips. Picking one swaps Trending / Top rated for this endpoint's sections, each as a swipeable row. The genre is kept in the `?genre=` URL parameter, so genre chips on a title page link to `/discover?type=…&genre=…`. The separate `picks` screen was removed on 2026-10-01.
 
 ### How "Where to watch" and country work
 
@@ -209,7 +209,7 @@ Earlier migrations (`0000`–`0003`) are the original web app: titles, entries, 
 
 - `app/` — screens (expo-router file routes):
   - `(tabs)/`: `index` (Home), `discover`, `watchlist`, `lists`, `live`, `profile`
-  - Stack screens: `title/[type]/[id]`, `picks`, `recommended`, `country`, `show/new`, `show/[id]`, `user/[username]`, `login`, `register`
+  - Stack screens: `title/[type]/[id]`, `recommended`, `country`, `show/new`, `show/[id]`, `user/[username]`, `login`, `register`
   - `_layout.tsx`: the root stack and the list of screen titles
 - `src/`:
   - Setup: `api.ts` (client plus keychain token), `auth.tsx` (auth context, country sync, `useCountry`), `region.ts` (device region, country names, flags)

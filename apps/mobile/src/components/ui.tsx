@@ -118,6 +118,27 @@ export function Chip({
   );
 }
 
+/** A pill-shaped control for switching between a few views. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View style={styles.segmented}>
+      {options.map((o) => (
+        <Pressable key={o.value} onPress={() => onChange(o.value)} style={[styles.segment, o.value === value && styles.segmentActive]}>
+          <Text style={[styles.segmentText, o.value === value && styles.segmentTextActive]}>{o.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 export function Field({ label, ...props }: { label: string } & TextInputProps) {
   return (
     <View style={{ gap: 6 }}>
@@ -214,6 +235,11 @@ const styles = StyleSheet.create({
   btnLabel: { color: "white", fontWeight: "700" },
   disabled: { opacity: 0.5 },
   chip: { borderRadius: 999, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel2, paddingHorizontal: 12, paddingVertical: 8 },
+  segmented: { flexDirection: "row", backgroundColor: colors.panel, borderRadius: 12, borderWidth: 1, borderColor: colors.line, padding: 4 },
+  segment: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: "center" },
+  segmentActive: { backgroundColor: colors.brand },
+  segmentText: { color: colors.muted, fontWeight: "700", fontSize: 13 },
+  segmentTextActive: { color: colors.ink },
   chipActive: { borderColor: colors.brand, backgroundColor: "rgba(245,158,11,0.12)" },
   chipLabel: { color: colors.zinc, fontSize: 13, fontWeight: "600" },
   chipCount: { fontSize: 10, fontWeight: "600" },
