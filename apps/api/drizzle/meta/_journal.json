@@ -92,6 +92,13 @@
       "when": 1790845323072,
       "tag": "0012_watched_with",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790845784862,
+      "tag": "0013_share_watchlist",
+      "breakpoints": true
     }
   ]
 }

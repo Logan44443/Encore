@@ -64,6 +64,8 @@ export const users = pgTable(
     allowFriendRequests: boolean("allow_friend_requests").notNull().default(true),
     /** Friends can tag them in "watched with". */
     allowTags: boolean("allow_tags").notNull().default(true),
+    /** Friends see their watchlist ("2 friends want to watch this"). */
+    shareWatchlist: boolean("share_watchlist").notNull().default(true),
     ...timestamps,
   },
   (t) => [uniqueIndex("users_username_lower_idx").on(sql`lower(${t.username})`)],

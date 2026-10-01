@@ -33,6 +33,8 @@ export default function RootLayout() {
           <Stack.Screen name="settings/privacy" options={{ title: "Privacy" }} />
           <Stack.Screen name="settings/blocked" options={{ title: "Blocked accounts" }} />
           <Stack.Screen name="inbox" options={{ title: "Inbox" }} />
+          <Stack.Screen name="activity" options={{ title: "From friends" }} />
+          <Stack.Screen name="compare/[username]" options={{ title: "Compare" }} />
           <Stack.Screen name="report" options={{ title: "Report", presentation: "modal" }} />
           <Stack.Screen name="guidelines" options={{ title: "Community guidelines", presentation: "modal" }} />
         </Stack>

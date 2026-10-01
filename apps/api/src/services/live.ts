@@ -1,5 +1,5 @@
 import { createLiveShowSchema, type LiveShow, type updateLiveShowSchema } from "@encore/shared";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import type { z } from "zod";
 import { db, type DB } from "../db/client";
@@ -210,6 +210,18 @@ export async function listLiveShows(userId: string, limit = 500): Promise<LiveSh
 export async function getOwnLiveShow(id: string, userId: string): Promise<LiveShow> {
   const [show] = await withShowCompanions([await getLiveShow(id, userId)], userId, userId);
   return show;
+}
+
+/** The latest shows logged by any of these people, newest first (Home's friends activity). */
+export async function recentShowsBy(userIds: string[], before: Date | null, limit: number) {
+  if (!userIds.length) return [];
+  const rows = await db.query.liveShows.findMany({
+    where: and(inArray(liveShows.userId, userIds), before ? lt(liveShows.createdAt, before) : undefined),
+    with: withRelations,
+    orderBy: (s, { desc }) => [desc(s.createdAt)],
+    limit,
+  });
+  return (rows as ShowRow[]).map((r) => ({ userId: r.userId, show: toLiveShow(r) }));
 }
 
 export async function createLiveShow(userId: string, input: CreateShow): Promise<LiveShow> {

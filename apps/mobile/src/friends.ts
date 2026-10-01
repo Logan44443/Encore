@@ -19,7 +19,7 @@ export function useRefreshFriends() {
   return useCallback(
     () =>
       Promise.all(
-        ["friends", "friend-requests", "pending-tags", "profile", "people", "blocked", "together"].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+        ["friends", "friend-requests", "pending-tags", "profile", "people", "blocked", "together", "activity", "friends-on-title", "compare", "feed"].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
       ),
     [queryClient],
   );

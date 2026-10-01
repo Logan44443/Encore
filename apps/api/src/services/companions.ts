@@ -117,7 +117,7 @@ async function confirmIfMutual(ownerId: string, friendId: string, target: Compan
  * see everything. Anyone else sees only friends who confirmed, plus a tag of
  * themselves; private names are never shown.
  */
-async function companionsFor(kind: "entry" | "show", ids: string[], viewerId: string, ownerId: string) {
+async function companionsFor(kind: "entry" | "show", ids: string[], viewerId: string, ownerId: string | null) {
   const byTarget = new Map<string, Companion[]>();
   if (!ids.length) return byTarget;
   const column = kind === "entry" ? watchCompanions.titleEntryId : watchCompanions.liveShowId;
@@ -148,12 +148,13 @@ async function companionsFor(kind: "entry" | "show", ids: string[], viewerId: st
   return byTarget;
 }
 
-export async function withEntryCompanions(entries: Entry[], viewerId: string, ownerId: string): Promise<Entry[]> {
+/** `ownerId` null: the entries belong to other people (a mixed list such as friends' activity). */
+export async function withEntryCompanions(entries: Entry[], viewerId: string, ownerId: string | null): Promise<Entry[]> {
   const map = await companionsFor("entry", entries.map((e) => e.id), viewerId, ownerId);
   return entries.map((e) => ({ ...e, companions: map.get(e.id) ?? [] }));
 }
 
-export async function withShowCompanions(shows: LiveShow[], viewerId: string, ownerId: string): Promise<LiveShow[]> {
+export async function withShowCompanions(shows: LiveShow[], viewerId: string, ownerId: string | null): Promise<LiveShow[]> {
   const map = await companionsFor("show", shows.map((s) => s.id), viewerId, ownerId);
   return shows.map((s) => ({ ...s, companions: map.get(s.id) ?? [] }));
 }

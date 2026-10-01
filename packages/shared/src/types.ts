@@ -26,7 +26,47 @@ export interface PrivacySettings {
   allowFriendRequests: boolean;
   /** Friends can say they watched something with you. */
   allowTags: boolean;
+  /** Friends see what's on your watchlist. */
+  shareWatchlist: boolean;
 }
+
+/** A friend's ranking of one title, for the title page. */
+export interface FriendRanking {
+  user: PublicUser;
+  entryId: string;
+  score: number;
+  tier: Tier;
+  genreName: string;
+  /** Null when they wrote nothing or don't share reviews. */
+  review: string | null;
+  watchedAt: string | null;
+}
+
+export interface FriendsOnTitle {
+  /** Highest score first. */
+  rankings: FriendRanking[];
+  /** Average friends' score, or null when no friend ranked it. */
+  average: number | null;
+  /** Friends with it on their watchlist. */
+  wantToWatch: PublicUser[];
+}
+
+/** You and one friend side by side. */
+export interface Comparison {
+  /** 0–100: how close your scores are on titles you both ranked; null below 3 shared titles. */
+  match: number | null;
+  /** Titles you both ranked, biggest disagreement first. */
+  both: { title: TitleSummary; mine: number; theirs: number }[];
+  /** Their best titles you haven't ranked. */
+  theyLoved: Entry[];
+  /** Your best titles they haven't ranked. */
+  youLoved: Entry[];
+}
+
+/** Something a friend ranked or saw, for the Home feed. */
+export type ActivityItem =
+  | { kind: "entry"; user: PublicUser; entry: Entry; at: string }
+  | { kind: "show"; user: PublicUser; show: LiveShow; at: string };
 
 /**
  * Someone you watched a title or show with. Friends have `user`; people not on
@@ -134,7 +174,9 @@ export type FeedReason =
   | { kind: "taste"; fans: number }
   | { kind: "genre"; genreName: string }
   | { kind: "watchlist" }
-  | { kind: "popular" };
+  | { kind: "popular" }
+  /** Friends who scored it highly, best taste match first. */
+  | { kind: "friends"; names: string[] };
 
 export interface FeedItem {
   title: DiscoverResult;

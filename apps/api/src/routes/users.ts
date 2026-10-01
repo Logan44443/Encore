@@ -12,6 +12,7 @@ import { toPublicUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
 import { withEntryCompanions, withShowCompanions } from "../services/companions";
 import { listEntries } from "../services/entries";
+import { compare } from "../services/friend-rankings";
 import { listLiveShows, liveStats } from "../services/live";
 
 /**
@@ -157,6 +158,13 @@ export const userRoutes = new Hono<AuthVars>()
     const { user, reviews } = await findViewableUser(viewerId, c.req.valid("param").username);
     const shows = await listLiveShows(user.id);
     return c.json({ shows: await withShowCompanions(reviews ? shows : shows.map(withoutNotes), viewerId, user.id) });
+  })
+
+  .get("/:username/compare", usernameParam, async (c) => {
+    const viewerId = c.get("userId");
+    const { user, reviews } = await findViewableUser(viewerId, c.req.valid("param").username);
+    if (user.id === viewerId) throw new HTTPException(400, { message: "That's you" });
+    return c.json(await compare(viewerId, user.id, reviews));
   })
 
   /**

@@ -26,7 +26,14 @@ export function reasonText(reason: FeedReason): string {
       return "On your watchlist";
     case "popular":
       return "Popular on Encore";
+    case "friends":
+      return `Loved by ${listNames(reason.names)}`;
   }
+}
+
+function listNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "your friends";
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
 
 /**
