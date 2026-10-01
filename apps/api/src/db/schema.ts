@@ -31,23 +31,28 @@ const timestamps = {
     .$onUpdate(() => new Date()),
 };
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").notNull().unique(),
-  username: text("username").notNull().unique(),
-  displayName: text("display_name").notNull(),
-  passwordHash: text("password_hash").notNull(),
-  country: text("country"),
-  countryManual: boolean("country_manual").notNull().default(false),
-  /** "My services": TMDB watch-provider ids the user subscribes to. */
-  services: jsonb("services").$type<number[]>().notNull().default([]),
-  /**
-   * Sessions issued before this are rejected. Set by a password change or reset and
-   * by "Sign out of other devices". (The column predates the last of those.)
-   */
-  sessionsRevokedAt: timestamp("password_changed_at", { withTimezone: true }),
-  ...timestamps,
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull().unique(),
+    /** Shown as typed ("Bob"); unique ignoring case, so "bob" can't also sign up. */
+    username: text("username").notNull(),
+    displayName: text("display_name").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    country: text("country"),
+    countryManual: boolean("country_manual").notNull().default(false),
+    /** "My services": TMDB watch-provider ids the user subscribes to. */
+    services: jsonb("services").$type<number[]>().notNull().default([]),
+    /**
+     * Sessions issued before this are rejected. Set by a password change or reset and
+     * by "Sign out of other devices". (The column predates the last of those.)
+     */
+    sessionsRevokedAt: timestamp("password_changed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("users_username_lower_idx").on(sql`lower(${t.username})`)],
+);
 
 /** Local cache of TMDB metadata so lists/profiles never hit TMDB. */
 export const titles = pgTable(

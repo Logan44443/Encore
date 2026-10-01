@@ -71,6 +71,13 @@
       "when": 1790777377522,
       "tag": "0009_user_services",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790823783214,
+      "tag": "0010_username_case_insensitive",
+      "breakpoints": true
     }
   ]
 }

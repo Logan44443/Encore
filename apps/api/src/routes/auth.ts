@@ -6,7 +6,7 @@ import { db } from "../db/client";
 import { users } from "../db/schema";
 import { hashPassword, requireAuth, signToken, verifyPassword, type AuthVars } from "../lib/auth";
 import { clientIp, RateLimiter, tooMany } from "../lib/rate-limit";
-import { toUser } from "../lib/users";
+import { toUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
 import { invalidateFeed } from "../services/feed";
 
@@ -26,7 +26,7 @@ export const authRoutes = new Hono<AuthVars>()
     const body = c.req.valid("json");
     const email = body.email.toLowerCase();
     const taken = await db.query.users.findFirst({
-      where: or(eq(users.email, email), eq(users.username, body.username)),
+      where: or(eq(users.email, email), usernameIs(body.username)),
     });
     if (taken) {
       throw new HTTPException(409, {
@@ -51,7 +51,7 @@ export const authRoutes = new Hono<AuthVars>()
     const key = login.toLowerCase();
     const wait = Math.max(loginByIp.hit(clientIp(c)), loginByAccount.hit(key));
     if (wait > 0) tooMany(wait);
-    const user = await db.query.users.findFirst({ where: or(eq(users.email, key), eq(users.username, key)) });
+    const user = await db.query.users.findFirst({ where: or(eq(users.email, key), usernameIs(key)) });
     const ok = await verifyPassword(password, user?.passwordHash ?? (await dummyHash));
     if (!user || !ok) {
       throw new HTTPException(401, { message: "Invalid credentials" });
