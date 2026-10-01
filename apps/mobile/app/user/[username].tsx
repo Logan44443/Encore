@@ -45,6 +45,7 @@ export function ProfileBody({ username }: { username: string }) {
         </View>
       </View>
       {relationship === "self" ? <FriendsLink /> : <RelationshipActions profile={data} />}
+      {relationship !== "self" && canView ? <CompareLink username={user.username} /> : null}
       {!canView ? (
         <Empty title="This profile is private" body={`Only people ${user.displayName} has added as friends can see their rankings and shows.`} />
       ) : (
@@ -97,6 +98,15 @@ function Together({ username }: { username: string }) {
         <ShowCard key={s.id} show={s} />
       ))}
     </>
+  );
+}
+
+function CompareLink({ username }: { username: string }) {
+  const router = useRouter();
+  return (
+    <SettingsGroup>
+      <SettingsRow label="Compare tastes" onPress={() => router.push(`/compare/${username}`)} last />
+    </SettingsGroup>
   );
 }
 

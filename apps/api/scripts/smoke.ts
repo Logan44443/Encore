@@ -257,6 +257,21 @@ const confirmed = (await api.entries.list({ mediaType: "tv" })).entries.find((e)
 assert.equal(confirmed.companions?.find((x) => x.user)?.confirmed, true);
 assert.equal((await api.live.get(show.id)).show.companions?.[0].confirmed, true);
 
+// Friends' rankings: on the title page, side by side, in Home's activity and in the feed
+const onBB = await api.friends.onTitle("tv", 1396);
+assert.deepEqual(onBB.rankings.map((r) => r.user.username), [user2]);
+assert.equal(onBB.average, onBB.rankings[0].score);
+const sideBySide = await api.users.compare(user2);
+assert.ok(sideBySide.both.some((b) => b.title.tmdbId === 1396));
+assert.equal(sideBySide.match, null, "too few shared titles for a match yet");
+assert.ok(sideBySide.youLoved.length > 0);
+const { items: activity } = await api.friends.activity();
+assert.ok(activity.some((i) => i.kind === "entry" && i.entry.title.tmdbId === 1396 && i.user.username === user2));
+assert.ok(activity.some((i) => i.kind === "show" && i.show.id === copied.show.id));
+const older = await api.friends.activity(activity.at(-1)!.at);
+assert.ok(!older.items.some((i) => i.at >= activity.at(-1)!.at), "paging goes back in time");
+assert.ok((await api.catalog.feed()).items.length > 0);
+
 token = (await api.auth.login({ login: user2, password: "correct-horse" })).token;
 const friendProfile = await api.users.profile(user1);
 assert.equal(friendProfile.canView, true);

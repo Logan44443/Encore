@@ -207,7 +207,7 @@ Earlier migrations (`0000`–`0003`) are the original web app: titles, entries, 
 
 ## Friends, privacy and safety
 
-Design: `design/friend-system.md` in the project files. Built in phases; phase 1 is in.
+Design: `design/friend-system.md` in the project files. Phases 1 to 3 are in (friends and safety, "watched with", friends' rankings across the app).
 
 - **Friends are mutual.** A request is accepted or declined; asking someone who already asked you accepts it. Tables `friend_requests` and `friendships` (two rows per pair).
 - **Profiles need sign-in.** `/users/*` returns 401 signed out. What you see depends on the owner's `profile_visibility` (`private`, `friends` default, `public`). Reviews and show notes go to friends only, when the owner's `share_reviews` is on (default on), and never to anyone else. Rules live in `apps/api/src/lib/social.ts`.
@@ -215,6 +215,7 @@ Design: `design/friend-system.md` in the project files. Built in phases; phase 1
 - **Reports** (`reports`) are stored for review. List them with `npm run reports -w @encore/api`, close one with `npm run reports -w @encore/api -- resolve <id> actioned|dismissed`. Apple expects action within a day. There is no email alert yet (no email provider).
 - **Names** are screened for slurs at sign-up and on rename (`apps/api/src/lib/moderation.ts`).
 - The website's public profile page now needs sign-in too; the website is on hold.
+- **Friends' rankings** (`apps/api/src/services/friend-rankings.ts`): only friends whose profile isn't "Only me" count. Taste match is 100 minus 10 per point of average score difference, from 3 shared titles. Friends' 8+ titles feed "Recommended for you" and win the label ("Loved by Sam"). `share_watchlist` controls "Sam wants to watch this".
 - **Watched with** (`watch_companions`): an entry or live show can list friends (`friend_id`) and private names (`name`). A friend's tag starts unconfirmed and shows only to the two of them until they confirm. It's confirmed automatically when both people log the same title, or a show on the same day, and tag each other. "Add to my shows" copies a friend's show (date, venue, lineup, setlist, but not their rating, reactions or notes). Blocking removes tags both ways. Logic is in `apps/api/src/services/companions.ts`.
 
 | Method & path | Purpose |
@@ -232,13 +233,17 @@ Design: `design/friend-system.md` in the project files. Built in phases; phase 1
 | `GET /companions/pending` · `POST /companions/:id/confirm` · `DELETE /companions/:id` | Tags waiting for you; confirm; remove |
 | `POST /live/:id/copy` | Copy a friend's show you're tagged in |
 | `GET /users/:username/together` | Entries and shows you watched together |
+| `GET /friends/titles/:type/:tmdbId` | Friends' scores and reviews on a title, their average, who wants to watch it |
+| `GET /users/:username/compare` | Taste match, titles you both ranked, each side's unranked favourites |
+| `GET /friends/activity?before=` | Friends' latest rankings and shows (paged by `at`) |
+| `GET /catalog/feed` | New reason `friends`: titles friends scored 8+, weighted by taste match |
 
 ## iOS app map (`apps/mobile`)
 
 - `app/` — screens (expo-router file routes):
   - `(tabs)/`: `index` (Home), `discover`, `watchlist`, `lists`, `live`, `profile`
   - Stack screens: `title/[type]/[id]`, `recommended`, `country`, `show/new`, `show/[id]`, `user/[username]`, `login`, `register`
-  - Friends: `friends/index` (friends and requests), `friends/add` (search, share profile link), `settings/privacy`, `settings/blocked`, `report` (modal), `guidelines`, `inbox` (bell on Home: requests and tags)
+  - Friends: `friends/index` (friends and requests), `friends/add` (search, share profile link), `settings/privacy`, `settings/blocked`, `report` (modal), `guidelines`, `inbox` (bell on Home: requests and tags), `activity`, `compare/[username]`
   - `_layout.tsx`: the root stack and the list of screen titles
 - `src/`:
   - Setup: `api.ts` (client plus keychain token), `auth.tsx` (auth context, country sync, `useCountry`), `region.ts` (device region, country names, flags)

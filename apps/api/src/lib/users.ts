@@ -23,6 +23,7 @@ export const toUser = (u: typeof users.$inferSelect): User => ({
     searchable: u.searchable,
     allowFriendRequests: u.allowFriendRequests,
     allowTags: u.allowTags,
+    shareWatchlist: u.shareWatchlist,
   },
 });
 

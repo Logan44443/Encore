@@ -8,6 +8,7 @@ import { useAuth } from "@/auth";
 import { companionNames, draftsFrom, draftsToInput } from "@/companions";
 import { CompanionPicker } from "@/components/CompanionPicker";
 import { DateField } from "@/components/DateField";
+import { FriendsOnTitle } from "@/components/FriendsOnTitle";
 import { Poster } from "@/components/Poster";
 import { EpisodeField, RankSheet, watchedAtError, type EntryDetails } from "@/components/RankSheet";
 import { SeasonSheet } from "@/components/SeasonRank";
@@ -104,6 +105,7 @@ export default function TitleScreen() {
       </View>
       <Muted>{title.overview}</Muted>
       <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} />
+      {user ? <FriendsOnTitle mediaType={mediaType} tmdbId={tmdbId} /> : null}
 
       {!myEntry && (
         <View style={{ gap: 8 }}>

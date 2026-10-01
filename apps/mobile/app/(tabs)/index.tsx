@@ -5,9 +5,11 @@ import type { ComponentProps } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { api } from "@/api";
 import { useAuth } from "@/auth";
+import { ActivityRow } from "@/components/Activity";
 import { EntryRow, LiveShowRow } from "@/components/EntryRow";
 import { FeedCard, UndoBar, useDismiss, useFeed } from "@/components/Feed";
 import { Button, Card, Empty, ErrorText, H1, Loading, Muted, Screen, SectionTitle } from "@/components/ui";
+import { useFriends } from "@/friends";
 import { colors } from "@/theme";
 
 export default function Home() {
@@ -70,8 +72,42 @@ function Dashboard({ name }: { name: string }) {
         <Empty title="No rankings yet" body="Rank a movie or series, or add a show you went to." />
       )}
 
+      <FriendsActivity />
+
       <Recommended />
     </Screen>
+  );
+}
+
+/** The latest from friends, or a nudge to add some. */
+function FriendsActivity() {
+  const router = useRouter();
+  const friends = useFriends();
+  const activity = useQuery({ queryKey: ["activity", "home"], queryFn: () => api.friends.activity() });
+  if (friends.isLoading || activity.isLoading) return null;
+  if (!friends.data?.friends.length) {
+    return (
+      <>
+        <SectionTitle children="Friends" />
+        <Card>
+          <Muted>See what your friends are ranking, compare tastes, and log what you watched together.</Muted>
+          <Button label="Find friends" tone="ghost" onPress={() => router.push("/friends/add")} />
+        </Card>
+      </>
+    );
+  }
+  const items = activity.data?.items.slice(0, 4) ?? [];
+  return (
+    <>
+      <SectionTitle children="From friends" action={items.length ? <LinkText label="See all" onPress={() => router.push("/activity")} /> : undefined} />
+      {activity.error ? (
+        <ErrorText error={activity.error} />
+      ) : items.length ? (
+        items.map((item) => <ActivityRow key={item.kind === "entry" ? `e:${item.entry.id}` : `s:${item.show.id}`} item={item} />)
+      ) : (
+        <Empty title="Nothing from friends yet" body="When friends rank something or log a show, it shows up here." />
+      )}
+    </>
   );
 }
 

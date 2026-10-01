@@ -137,7 +137,7 @@ function roundScore(score: number | null | undefined): number | null {
   return score == null ? null : Math.round(score * 10) / 10;
 }
 
-const entryColumns = {
+export const entryColumns = {
   id: titleEntries.id,
   tier: titleEntries.tier,
   genreId: titleEntries.genreId,
@@ -156,7 +156,7 @@ const entryColumns = {
 
 type EntryRow = Awaited<ReturnType<typeof selectEntries>>[number];
 
-function toEntry(r: EntryRow): Entry {
+export function toEntry(r: EntryRow): Entry {
   return {
     id: r.id,
     title: toTitleSummary(r),
@@ -172,7 +172,7 @@ function toEntry(r: EntryRow): Entry {
   };
 }
 
-function selectEntries(tx: Executor) {
+export function selectEntries(tx: Executor) {
   return tx.select(entryColumns).from(titleEntries).innerJoin(titles, eq(titles.id, titleEntries.titleId));
 }
 

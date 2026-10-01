@@ -34,6 +34,9 @@ import type {
   FriendRequest,
   Person,
   PendingTag,
+  ActivityItem,
+  Comparison,
+  FriendsOnTitle,
   GenreRecommendations,
   GenreSummary,
   LiveShow,
@@ -261,6 +264,8 @@ export function createApiClient({
       entries: (username: string, mediaType?: MediaType) =>
         request<{ entries: Entry[] }>("GET", p(`/users/${username}/entries`), { query: { mediaType } }),
       liveShows: (username: string) => request<{ shows: LiveShow[] }>("GET", p(`/users/${username}/live`)),
+      /** Taste match and side-by-side scores with a friend (or anyone whose profile you can see). */
+      compare: (username: string) => request<Comparison>("GET", p(`/users/${username}/compare`)),
       /** Movies, series and shows the two of you watched together. */
       together: (username: string) =>
         request<{ entries: Entry[]; shows: LiveShow[] }>("GET", p(`/users/${username}/together`)),
@@ -276,6 +281,10 @@ export function createApiClient({
       /** Declines a request sent to you, or cancels one you sent. */
       dismissRequest: (requestId: string) => request<null>("DELETE", p(`/friends/requests/${requestId}`)),
       remove: (userId: string) => request<null>("DELETE", p(`/friends/${userId}`)),
+      /** Friends' latest rankings and shows, newest first. Pass `before` (an item's `at`) for the next page. */
+      activity: (before?: string) => request<{ items: ActivityItem[] }>("GET", p("/friends/activity"), { query: { before } }),
+      /** Which friends ranked a title, their scores, and who wants to watch it. */
+      onTitle: (type: MediaType, tmdbId: number) => request<FriendsOnTitle>("GET", p(`/friends/titles/${type}/${tmdbId}`)),
     },
 
     safety: {

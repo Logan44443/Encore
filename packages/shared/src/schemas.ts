@@ -225,6 +225,7 @@ export const updatePrivacySchema = z
     searchable: z.boolean().optional(),
     allowFriendRequests: z.boolean().optional(),
     allowTags: z.boolean().optional(),
+    shareWatchlist: z.boolean().optional(),
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), "Nothing to change");
 

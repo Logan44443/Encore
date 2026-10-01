@@ -71,6 +71,13 @@ function Privacy() {
           onChange={(allowFriendRequests) => save({ allowFriendRequests })}
         />
         <ToggleRow
+          label="Share my watchlist with friends"
+          detail="Friends see when you want to watch something they're looking at."
+          value={privacy.shareWatchlist}
+          disabled={pending}
+          onChange={(shareWatchlist) => save({ shareWatchlist })}
+        />
+        <ToggleRow
           label="Let friends tag me"
           detail="Friends can say they watched something with you. You confirm each one."
           value={privacy.allowTags}

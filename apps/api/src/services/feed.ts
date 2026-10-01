@@ -17,16 +17,18 @@ import { TtlCache } from "../lib/cache";
 import { catalog } from "../providers/catalog";
 import { statsFor, topRated, trending } from "./discover";
 import { listEntries } from "./entries";
+import { friendPicks } from "./friend-rankings";
 import { listWatchlist } from "./watchlist";
 
 /**
  * "Recommended for you": one ranked feed across movies and TV.
  *
- * Candidates come from four sources, each adding points:
+ * Candidates come from five sources, each adding points:
  *   similar   — catalog "more like this" for your top liked titles   3 × seed score / 10
  *   taste     — liked by users who liked ≥ 2 of the same titles      2 × overlap / best overlap
  *   genre     — acclaimed titles in your strongest genres            1.2 × genre affinity
  *   watchlist — saved but not yet ranked (at most 3 in the feed)     1.5
+ *   friends   — scored 8+ by friends, weighted by taste match        2.5 × weight (≤ 3.75)
  * Boosts: genre affinity of the title, community score, recent release.
  * Penalty: shares genres with titles you marked "not interested".
  * My services: the best candidates are checked against the services you pay for
@@ -99,12 +101,15 @@ async function buildFeed(userId: string): Promise<Feed> {
       return;
     }
     c.points += points;
-    if (points > c.best.points) c.best = { reason, points, group };
+    // "Loved by Sam" says more than any other reason, so it's the label whenever it applies.
+    const friendsFirst = (r: FeedReason) => (r.kind === "friends" ? 1 : 0);
+    const better = friendsFirst(reason) - friendsFirst(c.best.reason) || points - c.best.points;
+    if (better > 0) c.best = { reason, points, group };
     if (!c.title.posterUrl && title.posterUrl) c.title = title;
   };
 
   const seeds = liked.slice(0, SEEDS);
-  const [similarLists, tasteRows, genreLists] = await Promise.all([
+  const [similarLists, tasteRows, genreLists, friendRows] = await Promise.all([
     Promise.all(seeds.map((s) => catalog.similar(s.title.mediaType, s.title.tmdbId).catch((): SearchResult[] => []))),
     tastePicks(userId, liked),
     Promise.all(
@@ -113,6 +118,7 @@ async function buildFeed(userId: string): Promise<Feed> {
         results: await catalog.topInGenre(g.mediaType, g.genreId).catch((): SearchResult[] => []),
       })),
     ),
+    friendPicks(userId, entries),
   ]);
 
   seeds.forEach((seed, i) => {
@@ -124,6 +130,12 @@ async function buildFeed(userId: string): Promise<Feed> {
   const bestOverlap = Math.max(1, ...tasteRows.map((r) => r.weight));
   for (const r of tasteRows) {
     add(r.title, 2 * (r.weight / bestOverlap), { kind: "taste", fans: r.fans }, "taste");
+  }
+
+  // Friends' favourites count most per title: you know these people, and their weight already
+  // reflects how closely their scores match yours.
+  for (const r of friendRows) {
+    add(r.title, 2.5 * Math.min(1.5, r.weight), { kind: "friends", names: r.names.slice(0, 3) }, "friends");
   }
 
   for (const g of genreLists) {

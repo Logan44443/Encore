@@ -10,7 +10,10 @@ import { RateLimiter, tooMany } from "../lib/rate-limit";
 import { areFriends, blockedEitherWay, cutTies } from "../lib/social";
 import { toPublicUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
+import { mediaTypeSchema } from "@encore/shared";
 import { confirmTag, pendingTags, removeTag, removeTagsBetween } from "../services/companions";
+import { invalidateFeed } from "../services/feed";
+import { friendActivity, friendsOnTitle } from "../services/friend-rankings";
 
 /** Stops one account spraying requests at strangers. */
 const requestsByAccount = new RateLimiter(30, 60 * 60_000);
@@ -32,6 +35,9 @@ async function befriend(a: string, b: string) {
         { userId: b, friendId: a },
       ])
       .onConflictDoNothing();
+    // Friends' favourites feed into "Recommended for you".
+    invalidateFeed(a);
+    invalidateFeed(b);
     await tx
       .delete(friendRequests)
       .where(
@@ -79,6 +85,20 @@ export const friendRoutes = new Hono<AuthVars>()
     });
     return c.json({ incoming: incoming.map(shape), outgoing: outgoing.map(shape) });
   })
+
+  .get("/activity", validate("query", z.object({ before: z.iso.datetime({ offset: true }).optional() })), async (c) => {
+    const { before } = c.req.valid("query");
+    return c.json({ items: await friendActivity(c.get("userId"), before ? new Date(before) : null) });
+  })
+
+  .get(
+    "/titles/:type/:tmdbId",
+    validate("param", z.object({ type: mediaTypeSchema, tmdbId: z.coerce.number().int().positive() })),
+    async (c) => {
+      const { type, tmdbId } = c.req.valid("param");
+      return c.json(await friendsOnTitle(c.get("userId"), type, tmdbId));
+    },
+  )
 
   .post("/requests", validate("json", sendFriendRequestSchema), async (c) => {
     const userId = c.get("userId");
@@ -135,7 +155,11 @@ export const friendRoutes = new Hono<AuthVars>()
   })
 
   .delete("/:userId", userIdParam, async (c) => {
-    await cutTies(c.get("userId"), c.req.valid("param").userId);
+    const userId = c.get("userId");
+    const friendId = c.req.valid("param").userId;
+    await cutTies(userId, friendId);
+    invalidateFeed(userId);
+    invalidateFeed(friendId);
     return c.body(null, 204);
   });
 
