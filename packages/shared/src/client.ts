@@ -33,6 +33,7 @@ import type {
   Feed,
   FriendRequest,
   Person,
+  PendingTag,
   GenreRecommendations,
   GenreSummary,
   LiveShow,
@@ -228,6 +229,16 @@ export function createApiClient({
       update: (id: string, body: UpdateLiveShowInput) =>
         request<{ show: LiveShow }>("PATCH", p(`/live/${id}`), { body }),
       remove: (id: string) => request<null>("DELETE", p(`/live/${id}`)),
+      /** Copies a friend's show you were tagged in (date, venue, lineup, setlist) into your own log. */
+      copy: (id: string) => request<{ show: LiveShow }>("POST", p(`/live/${id}/copy`)),
+    },
+
+    companions: {
+      /** Tags from friends waiting for you to confirm. */
+      pending: () => request<{ tags: PendingTag[] }>("GET", p("/companions/pending")),
+      confirm: (id: string) => request<null>("POST", p(`/companions/${id}/confirm`)),
+      /** Removes a tag: yours on your own entry, or a friend's tag of you. */
+      remove: (id: string) => request<null>("DELETE", p(`/companions/${id}`)),
     },
 
     account: {
@@ -250,6 +261,9 @@ export function createApiClient({
       entries: (username: string, mediaType?: MediaType) =>
         request<{ entries: Entry[] }>("GET", p(`/users/${username}/entries`), { query: { mediaType } }),
       liveShows: (username: string) => request<{ shows: LiveShow[] }>("GET", p(`/users/${username}/live`)),
+      /** Movies, series and shows the two of you watched together. */
+      together: (username: string) =>
+        request<{ entries: Entry[]; shows: LiveShow[] }>("GET", p(`/users/${username}/together`)),
     },
 
     friends: {

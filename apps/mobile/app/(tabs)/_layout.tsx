@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs, useRouter } from "expo-router";
-import { Pressable } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useAuth } from "@/auth";
 import { Logo } from "@/components/Logo";
-import { useFriendRequests } from "@/friends";
+import { useInboxCount } from "@/friends";
 import { colors } from "@/theme";
 
 export default function TabsLayout() {
   const { user } = useAuth();
   const router = useRouter();
-  const waiting = useFriendRequests().data?.incoming.length ?? 0;
+  const inbox = useInboxCount();
   return (
     <Tabs
       screenOptions={{
@@ -28,6 +28,20 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           headerTitle: () => <Logo />,
+          headerRight: () =>
+            user ? (
+              <Pressable onPress={() => router.push("/inbox")} hitSlop={12} style={{ paddingHorizontal: 16 }} accessibilityLabel={inbox ? `Inbox, ${inbox} new` : "Inbox"}>
+                <Ionicons name={inbox ? "notifications" : "notifications-outline"} color={inbox ? colors.brand : colors.text} size={22} />
+                {inbox ? (
+                  <View style={{ position: "absolute", top: -4, right: 8, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.brand2, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
+                    <Text style={{ color: "white", fontSize: 10, fontWeight: "800" }}>{inbox > 99 ? "99+" : inbox}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            ) : null,
+          // Friend requests and "watched with" tags waiting for an answer.
+          tabBarBadge: inbox || undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.brand2 },
           tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
         }}
       />
@@ -56,9 +70,6 @@ export default function TabsLayout() {
         options={{
           title: "Profile",
           href: user ? undefined : null,
-          // Friend requests waiting for an answer.
-          tabBarBadge: waiting || undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.brand2 },
           headerRight: () => (
             <Pressable onPress={() => router.push("/settings")} hitSlop={12} style={{ paddingHorizontal: 16 }} accessibilityLabel="Settings">
               <Ionicons name="settings-outline" color={colors.text} size={22} />

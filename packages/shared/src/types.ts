@@ -24,6 +24,33 @@ export interface PrivacySettings {
   /** Appears in people search. */
   searchable: boolean;
   allowFriendRequests: boolean;
+  /** Friends can say they watched something with you. */
+  allowTags: boolean;
+}
+
+/**
+ * Someone you watched a title or show with. Friends have `user`; people not on
+ * Encore have only a `name`, which nobody but the author sees. A friend's tag is
+ * `confirmed` once they accept it, and only then shows to anyone but the two of you.
+ */
+export interface Companion {
+  id: string;
+  user: PublicUser | null;
+  name: string | null;
+  confirmed: boolean;
+}
+
+/** A friend said you watched something together and is waiting for you to confirm. */
+export interface PendingTag {
+  id: string;
+  by: PublicUser;
+  /** Set for movies and series. */
+  title: TitleSummary | null;
+  /** Set for live shows. */
+  show: { id: string; name: string; date: string; venue: string | null } | null;
+  /** When they watched it (the entry's watched date or the show date). */
+  date: string | null;
+  createdAt: string;
 }
 
 /**
@@ -178,6 +205,8 @@ export interface Entry {
   leastFavoriteEpisode: EpisodeRef | null;
   watchedAt: string | null;
   createdAt: string;
+  /** Who you watched it with. Only filled where it was asked for (your own lists, profiles). */
+  companions?: Companion[];
 }
 
 /** One slot in a (genre, tier) list, ordered best → worst. */
@@ -281,6 +310,8 @@ export interface LiveShow {
   /** Headliner(s) first, then support acts, in billing order. */
   lineup: LineupSlot[];
   createdAt: string;
+  /** Who you watched it with. Only filled where it was asked for (your own lists, profiles). */
+  companions?: Companion[];
 }
 
 export interface WatchlistFestival {

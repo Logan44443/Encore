@@ -19,8 +19,21 @@ export function useRefreshFriends() {
   return useCallback(
     () =>
       Promise.all(
-        ["friends", "friend-requests", "profile", "people", "blocked"].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+        ["friends", "friend-requests", "pending-tags", "profile", "people", "blocked", "together"].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
       ),
     [queryClient],
   );
+}
+
+/** "Watched with" tags from friends waiting for you to confirm. */
+export function usePendingTags() {
+  const { user } = useAuth();
+  return useQuery({ queryKey: ["pending-tags"], queryFn: () => api.companions.pending(), enabled: Boolean(user) });
+}
+
+/** Friend requests plus tags waiting for an answer: the number on the inbox bell. */
+export function useInboxCount() {
+  const requests = useFriendRequests();
+  const tags = usePendingTags();
+  return (requests.data?.incoming.length ?? 0) + (tags.data?.tags.length ?? 0);
 }

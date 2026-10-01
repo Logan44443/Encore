@@ -17,6 +17,7 @@ import { and, asc, desc, eq, gt, ne, sql, type SQL } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { db, type DB } from "../db/client";
 import { titleEntries, titles } from "../db/schema";
+import { resolveCompanions, withEntryCompanions, writeCompanions } from "./companions";
 import { getTitle, toTitleSummary } from "./titles";
 import { clearWatchedTitle } from "./watchlist-sync";
 
@@ -228,8 +229,9 @@ export async function createEntry(userId: string, input: CreateEntryInput): Prom
   assertGenre(input.mediaType, input.genreId);
   const title = await getTitle(input.mediaType, input.tmdbId);
   const key: ListKey = { userId, mediaType: input.mediaType, genreId: input.genreId, tier: input.tier };
+  const companions = input.companions ? await resolveCompanions(userId, input.companions) : null;
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [dupe] = await tx
       .select({ id: titleEntries.id })
       .from(titleEntries)
@@ -260,6 +262,9 @@ export async function createEntry(userId: string, input: CreateEntryInput): Prom
     await clearWatchedTitle(tx, userId, title.id);
     return withRank(tx, userId, await getEntryOrThrow(tx, userId, inserted.id));
   });
+  if (companions) await writeCompanions(userId, { entryId: result.entry.id }, companions);
+  const [entry] = await withEntryCompanions([result.entry], userId, userId);
+  return { ...result, entry };
 }
 
 export async function rerankEntry(userId: string, id: string, input: RerankEntryInput): Promise<EntryResult> {
@@ -295,9 +300,11 @@ export async function updateEntry(userId: string, id: string, input: UpdateEntry
       leastFavoriteEpisode: isTv ? input.leastFavoriteEpisode : undefined,
     }).filter(([, v]) => v !== undefined),
   );
-  if (Object.keys(changes).length === 0) return current;
-  await db.update(titleEntries).set(changes).where(eq(titleEntries.id, id));
-  return getEntryOrThrow(db, userId, id);
+  const companions = input.companions ? await resolveCompanions(userId, input.companions) : null;
+  if (Object.keys(changes).length > 0) await db.update(titleEntries).set(changes).where(eq(titleEntries.id, id));
+  if (companions) await writeCompanions(userId, { entryId: id }, companions);
+  const [entry] = await withEntryCompanions([await getEntryOrThrow(db, userId, id)], userId, userId);
+  return entry;
 }
 
 export async function deleteEntry(userId: string, id: string) {

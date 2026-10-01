@@ -6,6 +6,7 @@ import { Alert, Linking, ScrollView, Text, View } from "react-native";
 import { api } from "@/api";
 import { LiveForm } from "@/components/LiveForm";
 import { AuthGate, Button, Card, ErrorText, H1, Loading, Muted, Screen } from "@/components/ui";
+import { companionNames } from "@/companions";
 import { formatDate, formatPlace, mapUrl, showTitle } from "@/format";
 import { formToPayload, showToForm, type LiveShowFormValues } from "@/live-form";
 import { colors } from "@/theme";
@@ -89,6 +90,7 @@ function Detail() {
         </Card>
       )}
       {show.tourName ? <Muted>Tour · {show.tourName}</Muted> : null}
+      {companionNames(show.companions) ? <Muted>With {companionNames(show.companions)}</Muted> : null}
       {show.liked ? <Card><Muted>Liked</Muted><Text style={{ color: colors.text }}>{show.liked}</Text></Card> : null}
       {show.disliked ? <Card><Muted>Didn't like</Muted><Text style={{ color: colors.text }}>{show.disliked}</Text></Card> : null}
       {show.notes ? <Card><Muted>Notes</Muted><Text style={{ color: colors.text }}>{show.notes}</Text></Card> : null}

@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requireAuth, type AuthVars } from "../lib/auth";
 import { validate } from "../lib/validate";
+import { withEntryCompanions } from "../services/companions";
 import { invalidateDiscover } from "../services/discover";
 import { invalidateFeed } from "../services/feed";
 import {
@@ -44,7 +45,10 @@ export const entryRoutes = new Hono<AuthVars>()
   .get(
     "/",
     validate("query", z.object({ mediaType: mediaTypeSchema.optional(), genreId: z.coerce.number().int().optional() })),
-    async (c) => c.json({ entries: await listEntries(c.get("userId"), c.req.valid("query")) }),
+    async (c) => {
+      const userId = c.get("userId");
+      return c.json({ entries: await withEntryCompanions(await listEntries(userId, c.req.valid("query")), userId, userId) });
+    },
   )
 
   .get(

@@ -1,10 +1,12 @@
 import type { Entry, MediaType, SeasonEntry, Title } from "@encore/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
 import { api } from "@/api";
 import { useAuth } from "@/auth";
+import { companionNames, draftsFrom, draftsToInput } from "@/companions";
+import { CompanionPicker } from "@/components/CompanionPicker";
 import { DateField } from "@/components/DateField";
 import { Poster } from "@/components/Poster";
 import { EpisodeField, RankSheet, watchedAtError, type EntryDetails } from "@/components/RankSheet";
@@ -16,7 +18,8 @@ import { colors, tierColor } from "@/theme";
 import { useToggleTitle } from "@/watchlist";
 
 export default function TitleScreen() {
-  const { type, id } = useLocalSearchParams<{ type: string; id: string }>();
+  // withId / withName: opened from a friend's "watched with" tag, to log it with them.
+  const { type, id, withId, withName } = useLocalSearchParams<{ type: string; id: string; withId?: string; withName?: string }>();
   const mediaType = (type === "tv" ? "tv" : "movie") as MediaType;
   const tmdbId = Number(id);
   const { user } = useAuth();
@@ -38,6 +41,14 @@ export default function TitleScreen() {
     enabled: mediaType === "tv" && Boolean(user) && Number.isFinite(tmdbId),
   });
   const watch = useToggleTitle(mediaType, tmdbId);
+  const tagger = withId && withName ? [{ userId: withId, label: withName }] : undefined;
+  const [openedForTag, setOpenedForTag] = useState(false);
+  useEffect(() => {
+    if (tagger && data && !data.myEntry && user && !openedForTag) {
+      setOpenedForTag(true);
+      setRanking(true);
+    }
+  }, [tagger, data, user, openedForTag]);
 
   const saveDetails = useMutation({
     mutationFn: (d: EntryDetails) =>
@@ -46,9 +57,11 @@ export default function TitleScreen() {
         watchedAt: d.watchedAt.trim() || null,
         favoriteEpisode: d.favoriteEpisode,
         leastFavoriteEpisode: d.leastFavoriteEpisode,
+        companions: draftsToInput(d.companions),
       }),
     onSuccess: () => {
       setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["title", mediaType, tmdbId] });
       queryClient.invalidateQueries({ queryKey: ["entries"] });
       queryClient.invalidateQueries({ queryKey: ["feed"] });
@@ -119,6 +132,7 @@ export default function TitleScreen() {
               watchedAt: myEntry.watchedAt ?? "",
               favoriteEpisode: myEntry.favoriteEpisode,
               leastFavoriteEpisode: myEntry.leastFavoriteEpisode,
+              companions: draftsFrom(myEntry.companions),
             })
           }
           onChange={setEditing}
@@ -175,7 +189,7 @@ export default function TitleScreen() {
         </View>
       )}
 
-      {ranking && <RankSheet title={title} existing={myEntry} onClose={() => setRanking(false)} />}
+      {ranking && <RankSheet title={title} existing={myEntry} initialCompanions={myEntry ? undefined : tagger} onClose={() => setRanking(false)} />}
       {seasonMode && (
         <SeasonSheet
           title={title}
@@ -238,6 +252,7 @@ function EntryCard({
             placeholderTextColor={colors.muted}
           />
           <DateField label="Watched on" value={editing.watchedAt} onChange={(watchedAt) => onChange({ ...editing, watchedAt })} noFuture />
+          <CompanionPicker value={editing.companions} onChange={(companions) => onChange({ ...editing, companions })} />
           {title.mediaType === "tv" && title.seasons.length > 0 && (
             <>
               <EpisodeField label="Favorite episode" tmdbId={title.tmdbId} seasons={title.seasons} value={editing.favoriteEpisode} onChange={(favoriteEpisode) => onChange({ ...editing, favoriteEpisode })} />
@@ -253,6 +268,7 @@ function EntryCard({
       ) : (
         <View style={{ gap: 8 }}>
           {entry.review ? <Muted>“{entry.review}”</Muted> : null}
+          {companionNames(entry.companions) ? <Muted>Watched with {companionNames(entry.companions)}</Muted> : null}
           {entry.favoriteEpisode ? <Text style={{ color: colors.liked }}>Favorite: {formatEpisode(entry.favoriteEpisode)}</Text> : null}
           {entry.leastFavoriteEpisode ? <Text style={{ color: colors.disliked }}>Least favorite: {formatEpisode(entry.leastFavoriteEpisode)}</Text> : null}
           <Button label="Re-rank" tone="ghost" onPress={onRerank} />

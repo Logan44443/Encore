@@ -8,6 +8,7 @@ import {
   type ShowKind,
   type SongReaction,
 } from "@encore/shared";
+import { draftsFrom, draftsToInput, type CompanionDraft } from "./companions";
 import { localToday } from "./format";
 
 export interface SongDraft {
@@ -41,6 +42,7 @@ export interface LiveShowFormValues {
   disliked: string;
   notes: string;
   lineup: SlotDraft[];
+  companions: CompanionDraft[];
 }
 
 const NAMED: Partial<Record<ShowKind, string>> = {
@@ -97,6 +99,7 @@ export function showToForm(s?: LiveShow): LiveShowFormValues {
       role: slot.role,
       songs: slot.songs.map((x) => ({ title: x.title, encore: x.encore, reaction: x.reaction, note: x.note ?? "" })),
     })),
+    companions: draftsFrom(s?.companions),
   };
 }
 
@@ -128,6 +131,7 @@ export function formToPayload(v: LiveShowFormValues): CreateLiveShowInput {
       performer: slot.performer,
       songs: slot.songs.map((s) => ({ title: s.title, encore: s.encore, reaction: s.reaction, note: text(s.note) })),
     })),
+    companions: draftsToInput(v.companions),
   };
 }
 
