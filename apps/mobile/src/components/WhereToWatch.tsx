@@ -7,9 +7,10 @@ import { api } from "../api";
 import { useAuth, useCountry } from "../auth";
 import { countryName, flag } from "../region";
 import { colors } from "../theme";
+import { providerWatchUrl } from "../watch-links";
 import { Loading, Muted } from "./ui";
 
-export function WhereToWatch({ mediaType, tmdbId }: { mediaType: MediaType; tmdbId: number }) {
+export function WhereToWatch({ mediaType, tmdbId, titleName }: { mediaType: MediaType; tmdbId: number; titleName: string }) {
   const router = useRouter();
   const { user } = useAuth();
   const country = useCountry();
@@ -19,7 +20,6 @@ export function WhereToWatch({ mediaType, tmdbId }: { mediaType: MediaType; tmdb
     staleTime: 60 * 60_000,
   });
   const p = data?.providers;
-  const link = p?.link;
   // Your services first, so "you can watch this now" is the first thing you see.
   const mine = new Set(user?.services ?? []);
   const yoursFirst = (list: WatchProvider[]) => [...list].sort((a, b) => Number(mine.has(b.id)) - Number(mine.has(a.id)));
@@ -53,7 +53,7 @@ export function WhereToWatch({ mediaType, tmdbId }: { mediaType: MediaType; tmdb
               {list.map((provider) => (
                 <Pressable
                   key={provider.id}
-                  onPress={() => link && Linking.openURL(link)}
+                  onPress={() => Linking.openURL(providerWatchUrl(provider.name, titleName))}
                   style={styles.provider}
                   accessibilityLabel={`${label} on ${provider.name}`}
                 >
@@ -85,11 +85,7 @@ export function WhereToWatch({ mediaType, tmdbId }: { mediaType: MediaType; tmdb
         </Pressable>
       )}
 
-      {groups.length > 0 && (
-        <Pressable onPress={() => link && Linking.openURL(link)} disabled={!link}>
-          <Text style={styles.credit}>Streaming data from JustWatch{link ? " · See all options" : ""}</Text>
-        </Pressable>
-      )}
+      {groups.length > 0 && <Text style={styles.credit}>Streaming data from JustWatch</Text>}
     </View>
   );
 }
