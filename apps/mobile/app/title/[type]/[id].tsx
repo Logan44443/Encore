@@ -104,7 +104,7 @@ export default function TitleScreen() {
         ))}
       </View>
       <Muted>{title.overview}</Muted>
-      <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} />
+      <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} titleName={title.name} />
       {user ? <FriendsOnTitle mediaType={mediaType} tmdbId={tmdbId} /> : null}
 
       {!myEntry && (
