@@ -21,6 +21,7 @@ import {
   type SongDraft,
 } from "../live-form";
 import { colors } from "../theme";
+import { CompanionPicker } from "./CompanionPicker";
 import { DateField } from "./DateField";
 import { RatingSlider } from "./RatingSlider";
 import { Button, Chip, ErrorText, Field } from "./ui";
@@ -146,6 +147,7 @@ export function LiveForm({
       <View style={styles.section}>
         <Text style={styles.h2}>When and where?</Text>
         <DateField label="Date" value={v.date} onChange={(date) => set("date", date)} emptyText="Today" noFuture />
+        <CompanionPicker value={v.companions} onChange={(companions) => set("companions", companions)} />
         {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
         <Field label="Venue" value={v.venueName} onChangeText={(venueName) => setV((p) => ({ ...p, venueName, lat: null, lng: null, setlistFmVenueId: null }))} />
         <Field label="City" value={v.city} onChangeText={(city) => setV((p) => ({ ...p, city, lat: null, lng: null }))} />

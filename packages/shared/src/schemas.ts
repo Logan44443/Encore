@@ -73,6 +73,14 @@ export const episodeRefSchema = z.object({
   name: z.string().max(300),
 });
 
+/** Someone you watched with: a friend on Encore, or just a name (kept private to you). */
+export const companionInputSchema = z.union([
+  z.object({ userId: z.uuid() }),
+  z.object({ name: z.string().trim().min(1, "Enter a name").max(60) }),
+]);
+/** Replaces the whole "watched with" list when sent. */
+const companionsField = z.array(companionInputSchema).max(30, "That's a lot of people. 30 at most").optional();
+
 export const createEntrySchema = z.object({
   mediaType: mediaTypeSchema,
   tmdbId: z.number().int().positive(),
@@ -89,10 +97,11 @@ export const createEntrySchema = z.object({
   favoriteEpisode: episodeRefSchema.nullish(),
   leastFavoriteEpisode: episodeRefSchema.nullish(),
   watchedAt: isoDate.nullish(),
+  companions: companionsField,
 });
 
 export const updateEntrySchema = createEntrySchema
-  .pick({ review: true, favoriteEpisode: true, leastFavoriteEpisode: true, watchedAt: true })
+  .pick({ review: true, favoriteEpisode: true, leastFavoriteEpisode: true, watchedAt: true, companions: true })
   .partial();
 
 export const rerankEntrySchema = z.object({
@@ -169,6 +178,7 @@ export const createLiveShowSchema = z.object({
   disliked: optionalText(5000),
   notes: optionalText(5000),
   lineup: z.array(lineupSlotSchema).min(1, "Add at least one performer").max(60),
+  companions: companionsField,
 });
 
 export const updateLiveShowSchema = createLiveShowSchema.partial();
@@ -214,6 +224,7 @@ export const updatePrivacySchema = z
     shareReviews: z.boolean().optional(),
     searchable: z.boolean().optional(),
     allowFriendRequests: z.boolean().optional(),
+    allowTags: z.boolean().optional(),
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), "Nothing to change");
 
@@ -248,6 +259,7 @@ export const changePasswordSchema = z.object({
 export type RegisterInput = z.input<typeof registerSchema>;
 export type LoginInput = z.input<typeof loginSchema>;
 export type EpisodeRef = z.infer<typeof episodeRefSchema>;
+export type CompanionInput = z.input<typeof companionInputSchema>;
 export type CreateEntryInput = z.input<typeof createEntrySchema>;
 export type UpdateEntryInput = z.input<typeof updateEntrySchema>;
 export type RerankEntryInput = z.input<typeof rerankEntrySchema>;

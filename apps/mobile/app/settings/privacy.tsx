@@ -71,6 +71,13 @@ function Privacy() {
           onChange={(allowFriendRequests) => save({ allowFriendRequests })}
         />
         <ToggleRow
+          label="Let friends tag me"
+          detail="Friends can say they watched something with you. You confirm each one."
+          value={privacy.allowTags}
+          disabled={pending}
+          onChange={(allowTags) => save({ allowTags })}
+        />
+        <ToggleRow
           label="Show me in search"
           detail="When off, people need your profile link to find you."
           value={privacy.searchable}

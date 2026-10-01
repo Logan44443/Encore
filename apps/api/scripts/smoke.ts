@@ -217,6 +217,46 @@ assert.equal((await api.users.profile(user2)).relationship, "incoming");
 await api.friends.accept(incoming[0].id);
 assert.equal((await api.friends.list()).friends[0].username, user2);
 
+// Watched with: user 1 tags user 2 and a private name on Breaking Bad and on the Radiohead show
+const user2Id = (await api.friends.list()).friends[0].id;
+const tagged = await api.entries.update(bb.entry.id, { companions: [{ userId: user2Id }, { name: "Mum" }] });
+assert.deepEqual(
+  tagged.entry.companions?.map((x) => [x.user?.username ?? x.name, x.confirmed]),
+  [[user2, false], ["Mum", false]],
+);
+await assert.rejects(
+  api.entries.update(bb.entry.id, { companions: [{ userId: "00000000-0000-4000-8000-000000000000" }] }),
+  (err: { status?: number }) => err.status === 400,
+  "only friends can be tagged",
+);
+await api.live.update(show.id, { companions: [{ userId: user2Id }] });
+
+token = (await api.auth.login({ login: user2, password: "correct-horse" })).token;
+const { tags } = await api.companions.pending();
+assert.equal(tags.length, 2);
+assert.ok(tags.some((t) => t.title?.tmdbId === 1396 && t.by.username === user1));
+const showTag = tags.find((t) => t.show)!;
+assert.equal(showTag.show!.name, "Radiohead");
+const seenByFriend = (await api.users.entries(user1, "tv")).entries.find((e) => e.id === bb.entry.id)!;
+assert.deepEqual(seenByFriend.companions?.map((x) => x.user?.username ?? x.name), [user2], "private names stay private");
+
+// Logging it back with user 1 tagged confirms both sides; copying the show does too
+const bb2 = await api.entries.create({ mediaType: "tv", tmdbId: 1396, genreId: 18, tier: "liked", aboveEntryId: null, companions: [{ userId: auth.user.id }] });
+assert.equal(bb2.entry.companions?.[0].confirmed, true);
+const copied = await api.live.copy(showTag.show!.id);
+assert.equal(copied.show.date, show.date);
+assert.equal(copied.show.lineup[0].songs[0].title, "Creep");
+assert.equal(copied.show.lineup[0].songs[0].reaction, null, "reactions aren't copied");
+assert.equal((await api.live.copy(showTag.show!.id)).show.id, copied.show.id, "copying twice returns the same show");
+assert.equal((await api.companions.pending()).tags.length, 0);
+const together = await api.users.together(user1);
+assert.deepEqual(together.entries.map((e) => e.title.tmdbId), [1396]);
+assert.equal(together.shows.length, 1);
+token = auth.token;
+const confirmed = (await api.entries.list({ mediaType: "tv" })).entries.find((e) => e.id === bb.entry.id)!;
+assert.equal(confirmed.companions?.find((x) => x.user)?.confirmed, true);
+assert.equal((await api.live.get(show.id)).show.companions?.[0].confirmed, true);
+
 token = (await api.auth.login({ login: user2, password: "correct-horse" })).token;
 const friendProfile = await api.users.profile(user1);
 assert.equal(friendProfile.canView, true);

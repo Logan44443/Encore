@@ -10,6 +10,7 @@ import { RateLimiter, tooMany } from "../lib/rate-limit";
 import { areFriends, blockedEitherWay, cutTies } from "../lib/social";
 import { toPublicUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
+import { confirmTag, pendingTags, removeTag, removeTagsBetween } from "../services/companions";
 
 /** Stops one account spraying requests at strangers. */
 const requestsByAccount = new RateLimiter(30, 60 * 60_000);
@@ -159,6 +160,7 @@ export const safetyRoutes = new Hono<AuthVars>()
     if (!target) throw new HTTPException(404, { message: "User not found" });
     await db.insert(blocks).values({ blockerId: userId, blockedId }).onConflictDoNothing();
     await cutTies(userId, blockedId);
+    await removeTagsBetween(userId, blockedId);
     return c.body(null, 204);
   })
 
@@ -189,6 +191,20 @@ export const safetyRoutes = new Hono<AuthVars>()
     if (body.block) {
       await db.insert(blocks).values({ blockerId: userId, blockedId: target.id }).onConflictDoNothing();
       await cutTies(userId, target.id);
+      await removeTagsBetween(userId, target.id);
     }
+    return c.body(null, 204);
+  });
+
+/** "Watched with" tags: the ones waiting for you, confirming them, removing them. */
+export const companionRoutes = new Hono<AuthVars>()
+  .use(requireAuth)
+  .get("/pending", async (c) => c.json({ tags: await pendingTags(c.get("userId")) }))
+  .post("/:id/confirm", idParam, async (c) => {
+    await confirmTag(c.get("userId"), c.req.valid("param").id);
+    return c.body(null, 204);
+  })
+  .delete("/:id", idParam, async (c) => {
+    await removeTag(c.get("userId"), c.req.valid("param").id);
     return c.body(null, 204);
   });

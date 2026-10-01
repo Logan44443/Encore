@@ -215,6 +215,7 @@ Design: `design/friend-system.md` in the project files. Built in phases; phase 1
 - **Reports** (`reports`) are stored for review. List them with `npm run reports -w @encore/api`, close one with `npm run reports -w @encore/api -- resolve <id> actioned|dismissed`. Apple expects action within a day. There is no email alert yet (no email provider).
 - **Names** are screened for slurs at sign-up and on rename (`apps/api/src/lib/moderation.ts`).
 - The website's public profile page now needs sign-in too; the website is on hold.
+- **Watched with** (`watch_companions`): an entry or live show can list friends (`friend_id`) and private names (`name`). A friend's tag starts unconfirmed and shows only to the two of them until they confirm. It's confirmed automatically when both people log the same title, or a show on the same day, and tag each other. "Add to my shows" copies a friend's show (date, venue, lineup, setlist, but not their rating, reactions or notes). Blocking removes tags both ways. Logic is in `apps/api/src/services/companions.ts`.
 
 | Method & path | Purpose |
 | --- | --- |
@@ -226,14 +227,18 @@ Design: `design/friend-system.md` in the project files. Built in phases; phase 1
 | `DELETE /friends/:userId` | Unfriend |
 | `GET /blocks` · `POST /blocks` `{ userId }` · `DELETE /blocks/:userId` | Block list, block, unblock |
 | `POST /reports` | Report a user, review or show note (optionally block too) |
-| `PATCH /account/privacy` | Visibility, share reviews, search, friend requests |
+| `PATCH /account/privacy` | Visibility, share reviews, search, friend requests, tags |
+| `companions` on `POST/PATCH /entries` and `/live` | Replaces the "watched with" list: `[{ userId } \| { name }]` |
+| `GET /companions/pending` · `POST /companions/:id/confirm` · `DELETE /companions/:id` | Tags waiting for you; confirm; remove |
+| `POST /live/:id/copy` | Copy a friend's show you're tagged in |
+| `GET /users/:username/together` | Entries and shows you watched together |
 
 ## iOS app map (`apps/mobile`)
 
 - `app/` — screens (expo-router file routes):
   - `(tabs)/`: `index` (Home), `discover`, `watchlist`, `lists`, `live`, `profile`
   - Stack screens: `title/[type]/[id]`, `recommended`, `country`, `show/new`, `show/[id]`, `user/[username]`, `login`, `register`
-  - Friends: `friends/index` (friends and requests), `friends/add` (search, share profile link), `settings/privacy`, `settings/blocked`, `report` (modal), `guidelines`
+  - Friends: `friends/index` (friends and requests), `friends/add` (search, share profile link), `settings/privacy`, `settings/blocked`, `report` (modal), `guidelines`, `inbox` (bell on Home: requests and tags)
   - `_layout.tsx`: the root stack and the list of screen titles
 - `src/`:
   - Setup: `api.ts` (client plus keychain token), `auth.tsx` (auth context, country sync, `useCountry`), `region.ts` (device region, country names, flags)

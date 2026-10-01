@@ -1,10 +1,11 @@
-import type { createLiveShowSchema, LiveShow, updateLiveShowSchema } from "@encore/shared";
+import { createLiveShowSchema, type LiveShow, type updateLiveShowSchema } from "@encore/shared";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import type { z } from "zod";
 import { db, type DB } from "../db/client";
 import { liveShowPerformers, liveShows, liveShowSongs, performers, venues } from "../db/schema";
 import { performerImage } from "../providers/deezer";
+import { confirmTag, resolveCompanions, tagOnShow, withShowCompanions, writeCompanions } from "./companions";
 import { clearSeenLive } from "./watchlist-sync";
 
 type Tx = Parameters<Parameters<DB["transaction"]>[0]>[0];
@@ -205,7 +206,14 @@ export async function listLiveShows(userId: string, limit = 500): Promise<LiveSh
   return (rows as ShowRow[]).map(toLiveShow);
 }
 
+/** A show with its "watched with" list, as its owner sees it. */
+export async function getOwnLiveShow(id: string, userId: string): Promise<LiveShow> {
+  const [show] = await withShowCompanions([await getLiveShow(id, userId)], userId, userId);
+  return show;
+}
+
 export async function createLiveShow(userId: string, input: CreateShow): Promise<LiveShow> {
+  const companions = input.companions ? await resolveCompanions(userId, input.companions) : null;
   const lineup = await withImages(input.lineup);
   const id = await db.transaction(async (tx) => {
     const venueId = input.venue ? await upsertVenue(tx, input.venue) : null;
@@ -229,12 +237,14 @@ export async function createLiveShow(userId: string, input: CreateShow): Promise
     await clearSeenLive(tx, userId, performerIds, input.kind === "festival" ? (input.name ?? null) : null);
     return row.id;
   });
-  return getLiveShow(id);
+  if (companions) await writeCompanions(userId, { showId: id }, companions);
+  return getOwnLiveShow(id, userId);
 }
 
 export async function updateLiveShow(userId: string, id: string, input: UpdateShow): Promise<LiveShow> {
   await getLiveShow(id, userId);
-  const { lineup, venue, ...fields } = input;
+  const { lineup, venue, companions: companionInput, ...fields } = input;
+  const companions = companionInput ? await resolveCompanions(userId, companionInput) : null;
   const resolvedLineup = lineup ? await withImages(lineup) : undefined;
   await db.transaction(async (tx) => {
     const changes: Record<string, unknown> = Object.fromEntries(
@@ -244,7 +254,49 @@ export async function updateLiveShow(userId: string, id: string, input: UpdateSh
     if (Object.keys(changes).length > 0) await tx.update(liveShows).set(changes).where(eq(liveShows.id, id));
     if (resolvedLineup) await clearSeenLive(tx, userId, await replaceLineup(tx, id, resolvedLineup), null);
   });
-  return getLiveShow(id);
+  if (companions) await writeCompanions(userId, { showId: id }, companions);
+  return getOwnLiveShow(id, userId);
+}
+
+/**
+ * "Add to my log" for a friend's show you were tagged in: copies the date, venue,
+ * lineup and setlist (not their rating, reactions or notes) into a show of your
+ * own, tagged with them, and confirms their tag of you.
+ */
+export async function copyLiveShow(userId: string, showId: string): Promise<LiveShow> {
+  const tag = await tagOnShow(showId, userId);
+  if (!tag) throw new HTTPException(404, { message: "Show not found" });
+  const source = await getLiveShow(showId);
+  const ownerId = tag.ownerId;
+
+  // Already copied (or logged and tagged them back): return that one.
+  const mine = await db.query.liveShows.findMany({ where: and(eq(liveShows.userId, userId), eq(liveShows.date, source.date)), columns: { id: true } });
+  if (mine.length) {
+    const tagged = await Promise.all(mine.map((s) => tagOnShow(s.id, ownerId)));
+    const existing = mine.find((_, i) => tagged[i]);
+    if (existing) {
+      await confirmTag(userId, tag.id);
+      return getOwnLiveShow(existing.id, userId);
+    }
+  }
+
+  const input = createLiveShowSchema.parse({
+    kind: source.kind,
+    name: source.name,
+    date: source.date,
+    venue: source.venue,
+    tourName: source.tourName,
+    setlistFmId: source.setlistFmId,
+    lineup: source.lineup.map((slot) => ({
+      role: slot.role,
+      performer: slot.performer,
+      songs: slot.songs.map((song) => ({ title: song.title, encore: song.encore })),
+    })),
+  });
+  const show = await createLiveShow(userId, input);
+  await writeCompanions(userId, { showId: show.id }, { friendIds: [ownerId], names: [] });
+  await confirmTag(userId, tag.id);
+  return getOwnLiveShow(show.id, userId);
 }
 
 export async function deleteLiveShow(userId: string, id: string) {

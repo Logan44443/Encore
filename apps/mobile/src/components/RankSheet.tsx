@@ -25,8 +25,10 @@ import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
+import { draftsToInput, type CompanionDraft } from "../companions";
 import { formatEpisode, localToday } from "../format";
 import { colors, tierColor } from "../theme";
+import { CompanionPicker } from "./CompanionPicker";
 import { DateField } from "./DateField";
 import { Poster } from "./Poster";
 import { ScoreSlider } from "./ScoreSlider";
@@ -40,10 +42,11 @@ export interface EntryDetails {
   watchedAt: string;
   favoriteEpisode: EpisodeRef | null;
   leastFavoriteEpisode: EpisodeRef | null;
+  companions: CompanionDraft[];
 }
 
-function emptyDetails(): EntryDetails {
-  return { review: "", watchedAt: localToday(), favoriteEpisode: null, leastFavoriteEpisode: null };
+function emptyDetails(companions: CompanionDraft[] = []): EntryDetails {
+  return { review: "", watchedAt: localToday(), favoriteEpisode: null, leastFavoriteEpisode: null, companions };
 }
 
 /** Message for a bad "watched on" date, or null when it's blank or valid. */
@@ -55,10 +58,13 @@ export function watchedAtError(value: string): string | null {
 export function RankSheet({
   title,
   existing,
+  initialCompanions,
   onClose,
 }: {
   title: Title;
   existing?: Entry | null;
+  /** Prefills "Watched with", e.g. the friend who tagged you. */
+  initialCompanions?: CompanionDraft[];
   onClose: () => void;
 }) {
   // Only genres the API ranks in; a catalog genre outside the list would be rejected on save.
@@ -70,7 +76,7 @@ export function RankSheet({
   const [cmp, setCmp] = useState<ComparisonState | null>(null);
   /** Score set with the slider; only used while the list is too small to compare against. */
   const [score, setScore] = useState<number | null>(null);
-  const [details, setDetails] = useState<EntryDetails>(emptyDetails);
+  const [details, setDetails] = useState<EntryDetails>(() => emptyDetails(initialCompanions));
   const [result, setResult] = useState<EntryResult | null>(null);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -113,6 +119,7 @@ export function RankSheet({
         watchedAt: details.watchedAt.trim() || null,
         favoriteEpisode: details.favoriteEpisode,
         leastFavoriteEpisode: details.leastFavoriteEpisode,
+        companions: details.companions.length ? draftsToInput(details.companions) : undefined,
       });
     },
     onSuccess: (res) => {
@@ -268,6 +275,7 @@ export function RankSheet({
             />
             <Text style={styles.label}>Watched on</Text>
             <DateField value={details.watchedAt} onChange={(watchedAt) => setDetails({ ...details, watchedAt })} noFuture />
+            <CompanionPicker value={details.companions} onChange={(companions) => setDetails({ ...details, companions })} />
             {title.mediaType === "tv" && title.seasons.length > 0 && (
               <>
                 <EpisodeField

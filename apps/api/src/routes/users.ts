@@ -4,12 +4,13 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { db } from "../db/client";
-import { friendRequests, friendships, titleEntries, users } from "../db/schema";
+import { friendRequests, friendships, titleEntries, users, watchCompanions } from "../db/schema";
 import { requireAuth, type AuthVars } from "../lib/auth";
 import { RateLimiter, tooMany } from "../lib/rate-limit";
 import { blockedEitherWay, canViewContent, canViewReviews, notBlockedWith, relationshipBetween } from "../lib/social";
 import { toPublicUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
+import { withEntryCompanions, withShowCompanions } from "../services/companions";
 import { listEntries } from "../services/entries";
 import { listLiveShows, liveStats } from "../services/live";
 
@@ -137,21 +138,77 @@ export const userRoutes = new Hono<AuthVars>()
     const profile: Profile = {
       ...base,
       stats: { ...entryStats, ...live },
-      topMovies: reviews ? topMovies : topMovies.map(withoutReview),
-      topShows: reviews ? topShows : topShows.map(withoutReview),
-      recentLiveShows: reviews ? recentLiveShows : recentLiveShows.map(withoutNotes),
+      topMovies: await withEntryCompanions(reviews ? topMovies : topMovies.map(withoutReview), viewerId, user.id),
+      topShows: await withEntryCompanions(reviews ? topShows : topShows.map(withoutReview), viewerId, user.id),
+      recentLiveShows: await withShowCompanions(reviews ? recentLiveShows : recentLiveShows.map(withoutNotes), viewerId, user.id),
     };
     return c.json(profile);
   })
 
   .get("/:username/entries", usernameParam, validate("query", z.object({ mediaType: mediaTypeSchema.optional() })), async (c) => {
-    const { user, reviews } = await findViewableUser(c.get("userId"), c.req.valid("param").username);
+    const viewerId = c.get("userId");
+    const { user, reviews } = await findViewableUser(viewerId, c.req.valid("param").username);
     const entries = await listEntries(user.id, c.req.valid("query"));
-    return c.json({ entries: reviews ? entries : entries.map(withoutReview) });
+    return c.json({ entries: await withEntryCompanions(reviews ? entries : entries.map(withoutReview), viewerId, user.id) });
   })
 
   .get("/:username/live", usernameParam, async (c) => {
-    const { user, reviews } = await findViewableUser(c.get("userId"), c.req.valid("param").username);
+    const viewerId = c.get("userId");
+    const { user, reviews } = await findViewableUser(viewerId, c.req.valid("param").username);
     const shows = await listLiveShows(user.id);
-    return c.json({ shows: reviews ? shows : shows.map(withoutNotes) });
+    return c.json({ shows: await withShowCompanions(reviews ? shows : shows.map(withoutNotes), viewerId, user.id) });
+  })
+
+  /**
+   * What the two of you watched together: your logs where you tagged them, and
+   * theirs where they tagged you (when you can see their profile). A title you
+   * both logged shows once, as your entry.
+   */
+  .get("/:username/together", usernameParam, async (c) => {
+    const viewerId = c.get("userId");
+    const { user, canView, reviews } = await findVisibleUser(viewerId, c.req.valid("param").username);
+    if (user.id === viewerId) return c.json({ entries: [] as Entry[], shows: [] as LiveShow[] });
+    const tags = await db
+      .select({ ownerId: watchCompanions.ownerId, entryId: watchCompanions.titleEntryId, showId: watchCompanions.liveShowId })
+      .from(watchCompanions)
+      .where(
+        or(
+          and(eq(watchCompanions.ownerId, viewerId), eq(watchCompanions.friendId, user.id)),
+          canView ? and(eq(watchCompanions.ownerId, user.id), eq(watchCompanions.friendId, viewerId)) : undefined,
+        ),
+      );
+    const ids = (owner: string, key: "entryId" | "showId") =>
+      new Set(tags.flatMap((t) => (t.ownerId === owner && t[key] ? [t[key]] : [])));
+    const [myEntryIds, theirEntryIds, myShowIds, theirShowIds] = [
+      ids(viewerId, "entryId"),
+      ids(user.id, "entryId"),
+      ids(viewerId, "showId"),
+      ids(user.id, "showId"),
+    ];
+    const [myEntries, theirEntries, myShows, theirShows] = await Promise.all([
+      myEntryIds.size ? listEntries(viewerId, {}) : [],
+      theirEntryIds.size ? listEntries(user.id, {}) : [],
+      myShowIds.size ? listLiveShows(viewerId) : [],
+      theirShowIds.size ? listLiveShows(user.id) : [],
+    ]);
+    const mine = myEntries.filter((e) => myEntryIds.has(e.id));
+    const titleKey = (e: Entry) => `${e.title.mediaType}:${e.title.tmdbId}`;
+    const mineKeys = new Set(mine.map(titleKey));
+    const theirs = theirEntries
+      .filter((e) => theirEntryIds.has(e.id) && !mineKeys.has(titleKey(e)))
+      .map((e) => (reviews ? e : withoutReview(e)));
+    const myShowList = myShows.filter((s) => myShowIds.has(s.id));
+    const myDates = new Set(myShowList.map((s) => s.date));
+    const theirShowList = theirShows
+      .filter((s) => theirShowIds.has(s.id) && !myDates.has(s.date))
+      .map((s) => (reviews ? s : withoutNotes(s)));
+    const entries = [
+      ...(await withEntryCompanions(mine, viewerId, viewerId)),
+      ...(await withEntryCompanions(theirs, viewerId, user.id)),
+    ].sort((a, b) => (b.watchedAt ?? b.createdAt).localeCompare(a.watchedAt ?? a.createdAt));
+    const shows = [
+      ...(await withShowCompanions(myShowList, viewerId, viewerId)),
+      ...(await withShowCompanions(theirShowList, viewerId, user.id)),
+    ].sort((a, b) => b.date.localeCompare(a.date));
+    return c.json({ entries, shows });
   });

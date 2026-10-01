@@ -5,6 +5,7 @@ import { optionalAuth, requireAuth, type OptionalAuthVars } from "../lib/auth";
 import { validate } from "../lib/validate";
 import { catalog } from "../providers/catalog";
 import { genreRecommendations, genreSummaries, topRated, trending } from "../services/discover";
+import { withEntryCompanions } from "../services/companions";
 import { findEntryForTitle } from "../services/entries";
 import { dismissTitle, getFeed, undismissTitle } from "../services/feed";
 import { getTitle, toTitle } from "../services/titles";
@@ -120,6 +121,7 @@ export const catalogRoutes = new Hono<OptionalAuthVars>()
       const [myEntry, watchlistItemId] = userId
         ? await Promise.all([findEntryForTitle(userId, type, tmdbId), watchlistItemIdForTitle(userId, title.id)])
         : [null, null];
-      return c.json({ title: toTitle(title), myEntry, watchlistItemId });
+      const [entry] = myEntry && userId ? await withEntryCompanions([myEntry], userId, userId) : [myEntry];
+      return c.json({ title: toTitle(title), myEntry: entry, watchlistItemId });
     },
   );

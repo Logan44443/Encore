@@ -2,6 +2,7 @@ import type { EpisodeRef, Genre, SeasonSummary } from "@encore/shared";
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   doublePrecision,
   index,
@@ -61,6 +62,8 @@ export const users = pgTable(
     /** Appears in people search. Friends and anyone with the profile link can still find them. */
     searchable: boolean("searchable").notNull().default(true),
     allowFriendRequests: boolean("allow_friend_requests").notNull().default(true),
+    /** Friends can tag them in "watched with". */
+    allowTags: boolean("allow_tags").notNull().default(true),
     ...timestamps,
   },
   (t) => [uniqueIndex("users_username_lower_idx").on(sql`lower(${t.username})`)],
@@ -376,6 +379,36 @@ export const blocks = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.blockerId, t.blockedId] }), index("blocks_blocked_idx").on(t.blockedId)],
+);
+
+/**
+ * "Watched with": who someone watched a title (their entry) or live show with.
+ * Either a friend (`friendId`, confirmed once they accept) or a free-text name
+ * that only the owner ever sees.
+ */
+export const watchCompanions = pgTable(
+  "watch_companions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    titleEntryId: uuid("title_entry_id").references(() => titleEntries.id, { onDelete: "cascade" }),
+    liveShowId: uuid("live_show_id").references(() => liveShows.id, { onDelete: "cascade" }),
+    friendId: uuid("friend_id").references(() => users.id, { onDelete: "cascade" }),
+    name: text("name"),
+    confirmed: boolean("confirmed").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("companions_entry_idx").on(t.titleEntryId),
+    index("companions_show_idx").on(t.liveShowId),
+    index("companions_friend_idx").on(t.friendId, t.confirmed),
+    uniqueIndex("companions_entry_friend_idx").on(t.titleEntryId, t.friendId),
+    uniqueIndex("companions_show_friend_idx").on(t.liveShowId, t.friendId),
+    check("companions_one_target", sql`num_nonnulls(${t.titleEntryId}, ${t.liveShowId}) = 1`),
+    check("companions_one_person", sql`num_nonnulls(${t.friendId}, ${t.name}) = 1`),
+  ],
 );
 
 /**
