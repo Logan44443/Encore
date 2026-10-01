@@ -5,6 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { db } from "../db/client";
 import { titleEntries, users } from "../db/schema";
+import { usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
 import { listEntries } from "../services/entries";
 import { listLiveShows, liveStats } from "../services/live";
@@ -22,10 +23,10 @@ const publicShow = (s: LiveShow): LiveShow => ({
   lineup: s.lineup.map((slot) => ({ ...slot, songs: slot.songs.map((song) => ({ ...song, note: null })) })),
 });
 
-const usernameParam = validate("param", z.object({ username: z.string().toLowerCase() }));
+const usernameParam = validate("param", z.object({ username: z.string() }));
 
 async function findUser(username: string) {
-  const user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  const user = await db.query.users.findFirst({ where: usernameIs(username) });
   if (!user) throw new HTTPException(404, { message: "User not found" });
   return user;
 }

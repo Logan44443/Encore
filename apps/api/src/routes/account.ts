@@ -8,7 +8,7 @@ import { hashPassword, requireAuth, signToken, verifyPassword, type AuthVars } f
 import { mailer } from "../lib/mailer";
 import { RateLimiter, tooMany } from "../lib/rate-limit";
 import { revokeSessionsNow } from "../lib/sessions";
-import { toUser } from "../lib/users";
+import { toUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
 
 /**
@@ -46,7 +46,7 @@ export const accountRoutes = new Hono<AuthVars>()
     const userId = c.get("userId");
     const { displayName, username } = c.req.valid("json");
     if (username !== undefined) {
-      const taken = await db.query.users.findFirst({ where: and(eq(users.username, username), ne(users.id, userId)) });
+      const taken = await db.query.users.findFirst({ where: and(usernameIs(username), ne(users.id, userId)) });
       if (taken) throw new HTTPException(409, { message: "Username taken" });
     }
     const [user] = await db.update(users).set({ displayName, username }).where(eq(users.id, userId)).returning();

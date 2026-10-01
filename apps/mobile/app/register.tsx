@@ -22,7 +22,7 @@ export default function Register() {
     try {
       const res = await api.auth.register({
         email,
-        username: username.toLowerCase(),
+        username: username.trim(),
         password,
         country: deviceRegion() ?? undefined,
       });

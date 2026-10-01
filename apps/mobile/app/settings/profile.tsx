@@ -24,7 +24,7 @@ function EditProfile() {
   if (!user) return null;
 
   const name = displayName.trim();
-  const handle = username.trim().toLowerCase();
+  const handle = username.trim();
   const changes = {
     ...(name !== user.displayName ? { displayName: name } : {}),
     ...(handle !== user.username ? { username: handle } : {}),
@@ -52,15 +52,15 @@ function EditProfile() {
       <Field
         label="Username"
         value={username}
-        onChangeText={(v) => setUsername(v.toLowerCase())}
+        onChangeText={setUsername}
         autoCapitalize="none"
         autoCorrect={false}
         maxLength={24}
         textContentType="username"
       />
       <Muted>
-        Usernames are 3 to 24 letters, numbers or underscores. Changing yours changes your profile link, and someone
-        else can take your old one.
+        Usernames are 3 to 24 letters, numbers or underscores. Capitals show as you type them, but Bob and bob count
+        as the same name. Changing yours changes your profile link, and someone else can take your old one.
       </Muted>
       <ErrorText error={error} />
       <Button label={pending ? "…" : "Save"} disabled={pending || !dirty || !name || handle.length < 3} onPress={save} />

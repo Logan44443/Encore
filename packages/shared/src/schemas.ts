@@ -20,11 +20,11 @@ const httpsImageUrl = z
   .transform((v) => (v && /^https:\/\/[^\s]+$/i.test(v) && URL.canParse(v) ? v : null));
 const optionalText = (max: number) => z.string().trim().max(max).nullish();
 
+/** Keeps the capitalisation typed; uniqueness and lookups ignore case (enforced in the database). */
 export const usernameSchema = z
   .string()
   .trim()
-  .toLowerCase()
-  .regex(/^[a-z0-9_]{3,24}$/, "3–24 characters: letters, numbers, underscores");
+  .regex(/^[A-Za-z0-9_]{3,24}$/, "3–24 characters: letters, numbers, underscores");
 export const displayNameSchema = z.string().trim().min(1, "Enter a name").max(60);
 /** Same rule everywhere a password is set: sign-up, change, reset. */
 export const newPasswordSchema = z.string().min(8, "Use at least 8 characters").max(200);
