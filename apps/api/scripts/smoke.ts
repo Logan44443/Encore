@@ -19,9 +19,16 @@ token = auth.token;
 assert.equal((await api.auth.me()).user.username, `smoke_${suffix}`);
 
 const THRILLER = 53;
-// Rank three thrillers in the "liked" tier: Se7en > Prisoners > Gone Girl
-const a = await api.entries.create({ mediaType: "movie", tmdbId: 146233, genreId: THRILLER, tier: "liked", aboveEntryId: null });
-const b = await api.entries.create({ mediaType: "movie", tmdbId: 807, genreId: THRILLER, tier: "liked", aboveEntryId: null });
+// Rank three thrillers in the "liked" tier: Se7en > Prisoners > Gone Girl.
+// The first two titles in a list get their score from the slider; later ones are ranked by comparison.
+const a = await api.entries.create({ mediaType: "movie", tmdbId: 146233, genreId: THRILLER, tier: "liked", aboveEntryId: null, score: 8 });
+const b = await api.entries.create({ mediaType: "movie", tmdbId: 807, genreId: THRILLER, tier: "liked", aboveEntryId: null, score: 9.4 });
+assert.equal(b.rank, 1, "a set score places the title by score");
+await assert.rejects(
+  api.entries.create({ mediaType: "movie", tmdbId: 210577, genreId: THRILLER, tier: "liked", aboveEntryId: null, score: 9 }),
+  (err: { status?: number }) => err.status === 409,
+  "the slider is only for the first titles in a list",
+);
 const c = await api.entries.create({
   mediaType: "movie",
   tmdbId: 210577,
@@ -36,7 +43,8 @@ assert.deepEqual(
   candidates.map((x) => x.title.name),
   ["Se7en", "Prisoners", "Gone Girl"],
 );
-assert.equal(candidates[0].score, 10);
+// Set scores stay put; Gone Girl spreads toward the bottom of the tier (6.8).
+assert.deepEqual(candidates.map((x) => x.score), [9.4, 8, 7.4]);
 console.log("thriller ranking:", candidates.map((x) => `${x.title.name} ${x.score}`).join(", "));
 
 // A disliked thriller must score below every liked one
@@ -44,10 +52,10 @@ const d = await api.entries.create({ mediaType: "movie", tmdbId: 419430, genreId
 assert.ok(d.entry.score <= 3.4);
 assert.equal(d.rank, 4);
 
-// Move Gone Girl to the top
+// Move Gone Girl to the top by comparison: halfway between Se7en's 9.4 and the top of the tier
 const moved = await api.entries.rerank(c.entry.id, { genreId: THRILLER, tier: "liked", aboveEntryId: null });
 assert.equal(moved.rank, 1);
-assert.equal(moved.entry.score, 10);
+assert.equal(moved.entry.score, 9.7);
 
 // Duplicate is rejected
 await assert.rejects(
