@@ -7,7 +7,7 @@ import { Card, Empty, ErrorText, H1, Loading, Muted, Screen } from "@/components
 import { showTitle } from "@/format";
 import { colors } from "@/theme";
 
-export function ProfileBody({ username, footer }: { username: string; footer?: React.ReactNode }) {
+export function ProfileBody({ username }: { username: string }) {
   const { data, error, isLoading } = useQuery({
     queryKey: ["profile", username],
     queryFn: () => api.users.profile(username),
@@ -63,7 +63,6 @@ export function ProfileBody({ username, footer }: { username: string; footer?: R
       ) : (
         <Empty title="No live shows yet" />
       )}
-      {footer}
     </Screen>
   );
 }

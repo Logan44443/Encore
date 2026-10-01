@@ -1,16 +1,14 @@
-import type { WatchlistItem } from "@encore/shared";
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import type { ComponentProps } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { api } from "@/api";
 import { useAuth } from "@/auth";
-import { EntryRow } from "@/components/EntryRow";
+import { EntryRow, LiveShowRow } from "@/components/EntryRow";
 import { FeedCard, UndoBar, useDismiss, useFeed } from "@/components/Feed";
-import { Poster } from "@/components/Poster";
 import { Button, Card, Empty, ErrorText, H1, Loading, Muted, Screen, SectionTitle } from "@/components/ui";
-import { showTitle } from "@/format";
 import { colors } from "@/theme";
-import { useWatchlist } from "@/watchlist";
 
 export default function Home() {
   const { user, ready } = useAuth();
@@ -46,48 +44,30 @@ function Dashboard({ name }: { name: string }) {
   const router = useRouter();
   const entries = useQuery({ queryKey: ["entries", "all"], queryFn: () => api.entries.list() });
   const live = useQuery({ queryKey: ["live"], queryFn: () => api.live.list() });
-  const watchlist = useWatchlist();
-  const recent = [...(entries.data?.entries ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
-  const upcoming = watchlist.data?.items.slice(0, 4) ?? [];
+  // Titles and live shows together, newest first.
+  const recent = [
+    ...(entries.data?.entries ?? []).map((entry) => ({ kind: "entry" as const, entry, at: entry.createdAt })),
+    ...(live.data?.shows ?? []).map((show) => ({ kind: "show" as const, show, at: show.createdAt })),
+  ]
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, 3);
 
   return (
     <Screen>
       <H1>Hey, {name}</H1>
       <View style={styles.actions}>
-        <Action label="Rank a movie" onPress={() => router.push("/discover?type=movie")} />
-        <Action label="Rank a series" onPress={() => router.push("/discover?type=tv")} />
-        <Action label="Add a live show" onPress={() => router.push("/show/new")} />
-        <Action label="Watchlist" onPress={() => router.push("/watchlist")} />
+        <Action icon="film-outline" label="Movie" onPress={() => router.push("/discover?type=movie")} />
+        <Action icon="tv-outline" label="Series" onPress={() => router.push("/discover?type=tv")} />
+        <Action icon="ticket-outline" label="Live show" onPress={() => router.push("/show/new")} />
       </View>
 
-      <SectionTitle children="Up next" action={<LinkText label="Watchlist" onPress={() => router.push("/watchlist")} />} />
-      {watchlist.isLoading ? (
+      <SectionTitle children="Recently ranked" action={<LinkText label="See all" onPress={() => router.push("/lists")} />} />
+      {entries.isLoading || live.isLoading ? (
         <Loading />
-      ) : upcoming.length ? (
-        <View style={styles.actions}>
-          {upcoming.map((item) => (
-            <WatchChip key={item.id} item={item} />
-          ))}
-        </View>
+      ) : recent.length ? (
+        recent.map((r) => (r.kind === "entry" ? <EntryRow key={r.entry.id} entry={r.entry} /> : <LiveShowRow key={r.show.id} show={r.show} />))
       ) : (
-        <Empty title="Nothing saved yet" body="Bookmark a movie, show, artist, or festival." />
-      )}
-
-      <SectionTitle children="Recently ranked" action={<LinkText label="All rankings" onPress={() => router.push("/lists")} />} />
-      {entries.isLoading ? <Loading /> : recent.length ? recent.map((e) => <EntryRow key={e.id} entry={e} />) : <Empty title="No rankings yet" body="Pick something from Discover." />}
-
-      <SectionTitle children="Recent live shows" action={<LinkText label="All shows" onPress={() => router.push("/live")} />} />
-      {live.isLoading ? (
-        <Loading />
-      ) : live.data?.shows.length ? (
-        live.data.shows.slice(0, 4).map((s) => (
-          <Pressable key={s.id} onPress={() => router.push(`/show/${s.id}`)} style={styles.live}>
-            <Text style={styles.feature}>{showTitle(s)}</Text>
-            <Muted>{s.date}</Muted>
-          </Pressable>
-        ))
-      ) : (
-        <Empty title="No live shows yet" body="Add the last show you went to." />
+        <Empty title="No rankings yet" body="Rank a movie or series, or add a show you went to." />
       )}
 
       <Recommended />
@@ -123,9 +103,11 @@ function Recommended() {
   );
 }
 
-function Action({ label, onPress }: { label: string; onPress: () => void }) {
+function Action({ icon, label, onPress }: { icon: ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={styles.action}>
+    <Pressable onPress={onPress} style={styles.action} accessibilityLabel={`Add a ${label.toLowerCase()}`}>
+      <Ionicons name="add" color={colors.brand} size={14} style={styles.plus} />
+      <Ionicons name={icon} color={colors.text} size={22} />
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
   );
@@ -139,27 +121,10 @@ function LinkText({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
-function WatchChip({ item }: { item: WatchlistItem }) {
-  const router = useRouter();
-  const name = item.title?.name ?? item.performer?.name ?? item.festival?.name ?? "Saved";
-  const go = () => {
-    if (item.title) router.push(`/title/${item.kind}/${item.title.tmdbId}`);
-    else router.push("/watchlist");
-  };
-  return (
-    <Pressable onPress={go} style={{ width: 100 }}>
-      {item.title ? <Poster uri={item.title.posterUrl} name={name} width={100} /> : <View style={styles.placeholder}><Text style={styles.actionLabel}>{name.slice(0, 1)}</Text></View>}
-      <Text style={styles.chipName} numberOfLines={1}>{name}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   feature: { color: colors.text, fontWeight: "800" },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  action: { width: "47%", backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 16 },
-  actionLabel: { color: colors.text, fontWeight: "700", textAlign: "center" },
-  live: { backgroundColor: colors.panel, borderRadius: 14, borderWidth: 1, borderColor: colors.line, padding: 12, gap: 4 },
-  placeholder: { width: 100, height: 150, borderRadius: 12, backgroundColor: colors.panel2, alignItems: "center", justifyContent: "center" },
-  chipName: { color: colors.text, fontSize: 12, marginTop: 4, fontWeight: "600" },
+  actions: { flexDirection: "row", gap: 10 },
+  action: { flex: 1, alignItems: "center", gap: 6, backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, paddingVertical: 14 },
+  plus: { position: "absolute", top: 8, right: 10 },
+  actionLabel: { color: colors.text, fontWeight: "700", fontSize: 13 },
 });
