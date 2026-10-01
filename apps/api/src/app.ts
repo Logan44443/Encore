@@ -13,6 +13,7 @@ import { accountRoutes } from "./routes/account";
 import { authRoutes } from "./routes/auth";
 import { catalogRoutes } from "./routes/catalog";
 import { entryRoutes } from "./routes/entries";
+import { friendRoutes, safetyRoutes } from "./routes/friends";
 import { liveRoutes } from "./routes/live";
 import { musicRoutes } from "./routes/music";
 import { passwordResetRoutes } from "./routes/password-reset";
@@ -47,7 +48,9 @@ export const app = new Hono()
   .route("/live", liveRoutes)
   .route("/watchlist", watchlistRoutes)
   .route("/account", accountRoutes)
-  .route("/users", userRoutes);
+  .route("/users", userRoutes)
+  .route("/friends", friendRoutes)
+  .route("/", safetyRoutes);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 

@@ -28,6 +28,12 @@ export default function RootLayout() {
           <Stack.Screen name="show/new" options={{ title: "Add a show" }} />
           <Stack.Screen name="show/[id]" options={{ title: "Live show" }} />
           <Stack.Screen name="user/[username]" options={{ title: "Profile" }} />
+          <Stack.Screen name="friends/index" options={{ title: "Friends" }} />
+          <Stack.Screen name="friends/add" options={{ title: "Add friends" }} />
+          <Stack.Screen name="settings/privacy" options={{ title: "Privacy" }} />
+          <Stack.Screen name="settings/blocked" options={{ title: "Blocked accounts" }} />
+          <Stack.Screen name="report" options={{ title: "Report", presentation: "modal" }} />
+          <Stack.Screen name="guidelines" options={{ title: "Community guidelines", presentation: "modal" }} />
         </Stack>
       </AuthProvider>
     </QueryClientProvider>

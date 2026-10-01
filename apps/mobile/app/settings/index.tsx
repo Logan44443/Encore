@@ -1,3 +1,4 @@
+import { PROFILE_VISIBILITY_LABELS } from "@encore/shared";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -63,6 +64,13 @@ function Settings() {
       <SettingsGroup title="Profile">
         <SettingsRow label="Name" value={user.displayName} onPress={() => router.push("/settings/profile")} />
         <SettingsRow label="Username" value={`@${user.username}`} onPress={() => router.push("/settings/profile")} last />
+      </SettingsGroup>
+
+      <SettingsGroup title="Friends and privacy">
+        <SettingsRow label="Friends" onPress={() => router.push("/friends")} />
+        <SettingsRow label="Privacy" value={PROFILE_VISIBILITY_LABELS[user.privacy.profileVisibility]} onPress={() => router.push("/settings/privacy")} />
+        <SettingsRow label="Blocked accounts" onPress={() => router.push("/settings/blocked")} />
+        <SettingsRow label="Community guidelines" onPress={() => router.push("/guidelines")} last />
       </SettingsGroup>
 
       <SettingsGroup title="Account">

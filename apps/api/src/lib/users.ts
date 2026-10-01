@@ -1,4 +1,4 @@
-import type { User } from "@encore/shared";
+import type { PublicUser, User } from "@encore/shared";
 import { sql } from "drizzle-orm";
 import { users } from "../db/schema";
 
@@ -17,4 +17,17 @@ export const toUser = (u: typeof users.$inferSelect): User => ({
   country: u.country,
   countryManual: u.countryManual,
   services: u.services,
+  privacy: {
+    profileVisibility: u.profileVisibility,
+    shareReviews: u.shareReviews,
+    searchable: u.searchable,
+    allowFriendRequests: u.allowFriendRequests,
+  },
+});
+
+/** What anyone may see about a person: never their email, country or settings. */
+export const toPublicUser = (u: Pick<typeof users.$inferSelect, "id" | "username" | "displayName">): PublicUser => ({
+  id: u.id,
+  username: u.username,
+  displayName: u.displayName,
 });

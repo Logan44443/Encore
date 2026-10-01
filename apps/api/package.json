@@ -8,7 +8,8 @@
     "build": "node build.mjs",
     "start": "node --env-file-if-exists=.env dist/index.js",
     "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "reports": "tsx --env-file-if-exists=.env scripts/reports.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

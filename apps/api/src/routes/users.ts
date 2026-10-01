@@ -1,21 +1,24 @@
-import { mediaTypeSchema, type Entry, type LiveShow, type Profile } from "@encore/shared";
-import { eq, sql } from "drizzle-orm";
+import { mediaTypeSchema, type Entry, type LiveShow, type Person, type Profile } from "@encore/shared";
+import { and, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { db } from "../db/client";
-import { titleEntries, users } from "../db/schema";
-import { usernameIs } from "../lib/users";
+import { friendRequests, friendships, titleEntries, users } from "../db/schema";
+import { requireAuth, type AuthVars } from "../lib/auth";
+import { RateLimiter, tooMany } from "../lib/rate-limit";
+import { blockedEitherWay, canViewContent, canViewReviews, notBlockedWith, relationshipBetween } from "../lib/social";
+import { toPublicUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
 import { listEntries } from "../services/entries";
 import { listLiveShows, liveStats } from "../services/live";
 
 /**
- * Public profiles show what someone ranked and saw, not what they wrote about it:
- * reviews and show notes stay visible only to their author (GET /entries, /live).
+ * Reviews and show notes are only for their author, and for friends when the
+ * author shares them (Settings > Privacy). Everyone else gets them stripped.
  */
-const publicEntry = (e: Entry): Entry => ({ ...e, review: null });
-const publicShow = (s: LiveShow): LiveShow => ({
+const withoutReview = (e: Entry): Entry => ({ ...e, review: null });
+const withoutNotes = (s: LiveShow): LiveShow => ({
   ...s,
   liked: null,
   disliked: null,
@@ -23,17 +26,101 @@ const publicShow = (s: LiveShow): LiveShow => ({
   lineup: s.lineup.map((slot) => ({ ...slot, songs: slot.songs.map((song) => ({ ...song, note: null })) })),
 });
 
-const usernameParam = validate("param", z.object({ username: z.string() }));
+const usernameParam = validate("param", z.object({ username: z.string().max(64) }));
 
-async function findUser(username: string) {
+/** Searching is cheap to abuse for scraping usernames, so cap it per account. */
+const searchByAccount = new RateLimiter(60, 60_000);
+
+/**
+ * Looks up someone for the signed-in viewer. People who blocked the viewer (or
+ * whom the viewer blocked) are a plain 404, the same as a username that doesn't exist.
+ */
+async function findVisibleUser(viewerId: string, username: string) {
   const user = await db.query.users.findFirst({ where: usernameIs(username) });
-  if (!user) throw new HTTPException(404, { message: "User not found" });
-  return user;
+  if (!user || (user.id !== viewerId && (await blockedEitherWay(viewerId, user.id)))) {
+    throw new HTTPException(404, { message: "User not found" });
+  }
+  const rel = await relationshipBetween(viewerId, user.id);
+  return { user, ...rel, canView: canViewContent(user, rel.relationship), reviews: canViewReviews(user, rel.relationship) };
 }
 
-export const userRoutes = new Hono()
+/** Like findVisibleUser, but a 403 when their privacy settings hide their rankings from you. */
+async function findViewableUser(viewerId: string, username: string) {
+  const found = await findVisibleUser(viewerId, username);
+  if (!found.canView) throw new HTTPException(403, { message: "This profile is private" });
+  return found;
+}
+
+const EMPTY_STATS = { movies: 0, series: 0, liveShows: 0, performers: 0, cities: 0 };
+
+export const userRoutes = new Hono<AuthVars>()
+  .use(requireAuth)
+
+  .get("/search", validate("query", z.object({ q: z.string().trim().min(1).max(60) })), async (c) => {
+    const viewerId = c.get("userId");
+    const wait = searchByAccount.hit(viewerId);
+    if (wait > 0) tooMany(wait);
+    const q = c.req.valid("query").q.replace(/^@/, "");
+    if (q.length < 2) return c.json({ users: [] as Person[] });
+    const pattern = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+    const isFriend = sql`exists (select 1 from ${friendships} where ${friendships.userId} = ${viewerId} and ${friendships.friendId} = ${users.id})`;
+    const rows = await db
+      .select({ id: users.id, username: users.username, displayName: users.displayName })
+      .from(users)
+      .where(
+        and(
+          ne(users.id, viewerId),
+          or(ilike(users.username, `${pattern}%`), ilike(users.displayName, `%${pattern}%`)),
+          or(eq(users.searchable, true), isFriend),
+          notBlockedWith(viewerId, users.id),
+        ),
+      )
+      // Exact username first, then username prefix matches, then name matches.
+      .orderBy(
+        sql`lower(${users.username}) = lower(${q}) desc`,
+        sql`lower(${users.username}) like lower(${`${pattern}%`}) desc`,
+        users.username,
+      )
+      .limit(20);
+    if (!rows.length) return c.json({ users: [] as Person[] });
+
+    const ids = rows.map((r) => r.id);
+    const [friendRows, requestRows] = await Promise.all([
+      db.select({ id: friendships.friendId }).from(friendships).where(and(eq(friendships.userId, viewerId), inArray(friendships.friendId, ids))),
+      db
+        .select({ from: friendRequests.fromUserId, to: friendRequests.toUserId })
+        .from(friendRequests)
+        .where(
+          or(
+            and(eq(friendRequests.fromUserId, viewerId), inArray(friendRequests.toUserId, ids)),
+            and(eq(friendRequests.toUserId, viewerId), inArray(friendRequests.fromUserId, ids)),
+          ),
+        ),
+    ]);
+    const friends = new Set(friendRows.map((r) => r.id));
+    const sent = new Set(requestRows.filter((r) => r.from === viewerId).map((r) => r.to));
+    const received = new Set(requestRows.filter((r) => r.to === viewerId).map((r) => r.from));
+    const people: Person[] = rows.map((r) => ({
+      ...toPublicUser(r),
+      relationship: friends.has(r.id) ? "friend" : sent.has(r.id) ? "requested" : received.has(r.id) ? "incoming" : "none",
+    }));
+    return c.json({ users: people });
+  })
+
   .get("/:username", usernameParam, async (c) => {
-    const user = await findUser(c.req.valid("param").username);
+    const viewerId = c.get("userId");
+    const { user, relationship, requestId, canView, reviews } = await findVisibleUser(viewerId, c.req.valid("param").username);
+    const base = {
+      user: toPublicUser(user),
+      relationship,
+      requestId,
+      canView,
+      canRequest: relationship === "none" && user.allowFriendRequests,
+    };
+    if (!canView) {
+      const profile: Profile = { ...base, stats: EMPTY_STATS, topMovies: [], topShows: [], recentLiveShows: [] };
+      return c.json(profile);
+    }
     const [[entryStats], live, topMovies, topShows, recentLiveShows] = await Promise.all([
       db
         .select({
@@ -48,21 +135,23 @@ export const userRoutes = new Hono()
       listLiveShows(user.id, 6),
     ]);
     const profile: Profile = {
-      user: { id: user.id, username: user.username, displayName: user.displayName },
+      ...base,
       stats: { ...entryStats, ...live },
-      topMovies: topMovies.map(publicEntry),
-      topShows: topShows.map(publicEntry),
-      recentLiveShows: recentLiveShows.map(publicShow),
+      topMovies: reviews ? topMovies : topMovies.map(withoutReview),
+      topShows: reviews ? topShows : topShows.map(withoutReview),
+      recentLiveShows: reviews ? recentLiveShows : recentLiveShows.map(withoutNotes),
     };
     return c.json(profile);
   })
 
   .get("/:username/entries", usernameParam, validate("query", z.object({ mediaType: mediaTypeSchema.optional() })), async (c) => {
-    const user = await findUser(c.req.valid("param").username);
-    return c.json({ entries: (await listEntries(user.id, c.req.valid("query"))).map(publicEntry) });
+    const { user, reviews } = await findViewableUser(c.get("userId"), c.req.valid("param").username);
+    const entries = await listEntries(user.id, c.req.valid("query"));
+    return c.json({ entries: reviews ? entries : entries.map(withoutReview) });
   })
 
   .get("/:username/live", usernameParam, async (c) => {
-    const user = await findUser(c.req.valid("param").username);
-    return c.json({ shows: (await listLiveShows(user.id)).map(publicShow) });
+    const { user, reviews } = await findViewableUser(c.get("userId"), c.req.valid("param").username);
+    const shows = await listLiveShows(user.id);
+    return c.json({ shows: reviews ? shows : shows.map(withoutNotes) });
   });

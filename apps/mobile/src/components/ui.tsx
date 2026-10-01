@@ -1,6 +1,20 @@
 import { ApiError } from "@encore/shared";
 import { useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from "react-native";
+import {
+  ActionSheetIOS,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+  type TextInputProps,
+  type ViewStyle,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../auth";
 import { errorMessage } from "../format";
@@ -190,6 +204,64 @@ export function SettingsRow({
   );
 }
 
+/** A settings row with an on/off switch, and an optional explanation under the label. */
+export function ToggleRow({
+  label,
+  detail,
+  value,
+  onChange,
+  disabled,
+  last,
+}: {
+  label: string;
+  detail?: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+  last?: boolean;
+}) {
+  return (
+    <View style={[styles.row, !last && styles.rowDivider]}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        {detail ? <Text style={[styles.muted, { fontSize: 12, lineHeight: 16 }]}>{detail}</Text> : null}
+      </View>
+      <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ true: colors.brand }} />
+    </View>
+  );
+}
+
+/** A person's initial in a coloured circle (there are no profile photos). */
+export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+  return (
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Text style={{ color: "white", fontSize: size * 0.44, fontWeight: "900" }}>{name.slice(0, 1).toUpperCase()}</Text>
+    </View>
+  );
+}
+
+export interface MenuOption {
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+}
+
+/** An iOS action sheet (an alert elsewhere) with a Cancel button added. */
+export function showMenu(title: string | undefined, options: MenuOption[]) {
+  if (Platform.OS === "ios") {
+    const destructive = options.flatMap((o, i) => (o.destructive ? [i] : []));
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title, options: [...options.map((o) => o.label), "Cancel"], cancelButtonIndex: options.length, destructiveButtonIndex: destructive },
+      (i) => options[i]?.onPress(),
+    );
+    return;
+  }
+  Alert.alert(title ?? "", undefined, [
+    ...options.map((o) => ({ text: o.label, onPress: o.onPress, style: o.destructive ? ("destructive" as const) : undefined })),
+    { text: "Cancel", style: "cancel" as const },
+  ]);
+}
+
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
@@ -261,5 +333,6 @@ const styles = StyleSheet.create({
   rowValue: { flex: 1, color: colors.muted, fontSize: 15, textAlign: "right" },
   chevron: { color: colors.muted, fontSize: 22, lineHeight: 22, marginLeft: "auto" },
   card: { backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 8 },
+  avatar: { backgroundColor: colors.brand2, alignItems: "center", justifyContent: "center" },
   badge: { borderWidth: 2, alignItems: "center", justifyContent: "center" },
 });

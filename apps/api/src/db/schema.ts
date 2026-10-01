@@ -9,6 +9,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   real,
   serial,
   text,
@@ -22,6 +23,10 @@ export const tierEnum = pgEnum("tier", ["liked", "fine", "disliked"]);
 export const songReactionEnum = pgEnum("song_reaction", ["loved", "liked", "disliked"]);
 export const showKindEnum = pgEnum("show_kind", ["concert", "festival", "dj_set", "theatre", "comedy", "other"]);
 export const performerRoleEnum = pgEnum("performer_role", ["headliner", "support", "guest"]);
+export const profileVisibilityEnum = pgEnum("profile_visibility", ["private", "friends", "public"]);
+export const reportKindEnum = pgEnum("report_kind", ["user", "review", "show_note"]);
+export const reportReasonEnum = pgEnum("report_reason", ["spam", "harassment", "hate", "sexual", "impersonation", "other"]);
+export const reportStatusEnum = pgEnum("report_status", ["open", "actioned", "dismissed"]);
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -49,6 +54,13 @@ export const users = pgTable(
      * by "Sign out of other devices". (The column predates the last of those.)
      */
     sessionsRevokedAt: timestamp("password_changed_at", { withTimezone: true }),
+    /** Who can see rankings, scores and live shows: only me, friends, or any signed-in user. */
+    profileVisibility: profileVisibilityEnum("profile_visibility").notNull().default("friends"),
+    /** Friends also see reviews and show notes. Nobody else ever does. */
+    shareReviews: boolean("share_reviews").notNull().default(true),
+    /** Appears in people search. Friends and anyone with the profile link can still find them. */
+    searchable: boolean("searchable").notNull().default(true),
+    allowFriendRequests: boolean("allow_friend_requests").notNull().default(true),
     ...timestamps,
   },
   (t) => [uniqueIndex("users_username_lower_idx").on(sql`lower(${t.username})`)],
@@ -316,6 +328,79 @@ export const liveShowPerformersRelations = relations(liveShowPerformers, ({ one,
 export const liveShowSongsRelations = relations(liveShowSongs, ({ one }) => ({
   slot: one(liveShowPerformers, { fields: [liveShowSongs.slotId], references: [liveShowPerformers.id] }),
 }));
+
+/** A pending friend request. Accepting it deletes the row and creates the friendship. */
+export const friendRequests = pgTable(
+  "friend_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fromUserId: uuid("from_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    toUserId: uuid("to_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("friend_requests_pair_idx").on(t.fromUserId, t.toUserId),
+    index("friend_requests_to_idx").on(t.toUserId, t.createdAt),
+  ],
+);
+
+/** Mutual friendships, stored as two rows per pair so "my friends" is a single indexed lookup. */
+export const friendships = pgTable(
+  "friendships",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    friendId: uuid("friend_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.friendId] })],
+);
+
+/** Blocks hide both people from each other everywhere. The blocked person isn't told. */
+export const blocks = pgTable(
+  "blocks",
+  {
+    blockerId: uuid("blocker_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedId: uuid("blocked_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.blockerId, t.blockedId] }), index("blocks_blocked_idx").on(t.blockedId)],
+);
+
+/**
+ * Reports of people or of something they wrote, for moderation (App Store guideline 1.2).
+ * Kept when either account is deleted, so a reporter can't erase a report by leaving.
+ */
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reporterId: uuid("reporter_id").references(() => users.id, { onDelete: "set null" }),
+    targetUserId: uuid("target_user_id").references(() => users.id, { onDelete: "set null" }),
+    /** Username at report time, so the report still makes sense after a rename or deletion. */
+    targetUsername: text("target_username").notNull(),
+    kind: reportKindEnum("kind").notNull(),
+    /** The entry or live show reported, for review and show_note reports. */
+    targetId: uuid("target_id"),
+    reason: reportReasonEnum("reason").notNull(),
+    details: text("details"),
+    status: reportStatusEnum("status").notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [index("reports_status_idx").on(t.status, t.createdAt)],
+);
 
 /** One-time codes for "forgot password". Only an HMAC of the code is stored; one live code per user. */
 export const passwordResetCodes = pgTable("password_reset_codes", {
