@@ -86,7 +86,7 @@ export default function TitleScreen() {
       <H1>{title.year ? `${title.name} (${title.year})` : title.name}</H1>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {title.genres.map((g) => (
-          <Chip key={g.id} label={g.name} onPress={() => router.push(`/picks?type=${mediaType}&genre=${g.id}`)} />
+          <Chip key={g.id} label={g.name} onPress={() => router.push(`/discover?type=${mediaType}&genre=${g.id}`)} />
         ))}
       </View>
       <Muted>{title.overview}</Muted>
