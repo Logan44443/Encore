@@ -1,6 +1,7 @@
-import type { Entry } from "@encore/shared";
+import { SHOW_KIND_LABELS, type Entry, type LiveShow } from "@encore/shared";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { showTitle } from "../format";
 import { colors, tierColor } from "../theme";
 import { Poster } from "./Poster";
 import { ScoreBadge } from "./ui";
@@ -21,6 +22,29 @@ export function EntryRow({ entry, rank }: { entry: Entry; rank?: number }) {
         </Text>
       </View>
       <ScoreBadge score={entry.score} color={tierColor[entry.tier]} />
+    </Pressable>
+  );
+}
+
+/** A live show in the same shape as EntryRow, with the headliner's photo in place of a poster. */
+export function LiveShowRow({ show }: { show: LiveShow }) {
+  const router = useRouter();
+  const name = showTitle(show);
+  const headliner = show.lineup.find((s) => s.role === "headliner") ?? show.lineup[0];
+  return (
+    <Pressable onPress={() => router.push(`/show/${show.id}`)} style={styles.row}>
+      <Poster uri={headliner?.performer.imageUrl ?? null} name={name} width={44} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.name} numberOfLines={1}>
+          {name}
+        </Text>
+        <Text style={styles.meta} numberOfLines={1}>
+          {SHOW_KIND_LABELS[show.kind]}
+          {show.venue ? ` · ${show.venue.name}` : ""}
+          {` · ${show.date.slice(0, 4)}`}
+        </Text>
+      </View>
+      {show.rating !== null ? <ScoreBadge score={show.rating} color={colors.brand} /> : null}
     </Pressable>
   );
 }
