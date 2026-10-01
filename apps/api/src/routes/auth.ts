@@ -5,6 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { db } from "../db/client";
 import { users } from "../db/schema";
 import { hashPassword, requireAuth, signToken, verifyPassword, type AuthVars } from "../lib/auth";
+import { assertAcceptableNames } from "../lib/moderation";
 import { clientIp, RateLimiter, tooMany } from "../lib/rate-limit";
 import { toUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
@@ -24,6 +25,7 @@ export const authRoutes = new Hono<AuthVars>()
     const wait = registerByIp.hit(clientIp(c));
     if (wait > 0) tooMany(wait);
     const body = c.req.valid("json");
+    assertAcceptableNames(body.username, body.displayName);
     const email = body.email.toLowerCase();
     const taken = await db.query.users.findFirst({
       where: or(eq(users.email, email), usernameIs(body.username)),

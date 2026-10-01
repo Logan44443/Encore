@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MEDIA_TYPES, PERFORMER_ROLES, SHOW_KINDS, SONG_REACTIONS, TIERS } from "./constants";
+import { MEDIA_TYPES, PERFORMER_ROLES, PROFILE_VISIBILITIES, REPORT_KINDS, REPORT_REASONS, SHOW_KINDS, SONG_REACTIONS, TIERS } from "./constants";
 
 /** True for a real calendar date in YYYY-MM-DD form (rejects 2024-02-31, 2024-13-01, …). */
 export function isValidIsoDate(value: string): boolean {
@@ -207,6 +207,33 @@ export const updateProfileSchema = z
   .object({ displayName: displayNameSchema.optional(), username: usernameSchema.optional() })
   .refine((v) => v.displayName !== undefined || v.username !== undefined, "Nothing to change");
 
+/** Settings > Privacy. Send only what changed. */
+export const updatePrivacySchema = z
+  .object({
+    profileVisibility: z.enum(PROFILE_VISIBILITIES).optional(),
+    shareReviews: z.boolean().optional(),
+    searchable: z.boolean().optional(),
+    allowFriendRequests: z.boolean().optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), "Nothing to change");
+
+export const sendFriendRequestSchema = z.object({ username: z.string().trim().min(1).max(24) });
+
+export const blockUserSchema = z.object({ userId: z.uuid() });
+
+export const reportSchema = z
+  .object({
+    userId: z.uuid(),
+    kind: z.enum(REPORT_KINDS).default("user"),
+    /** The entry (review) or live show (show_note) being reported. */
+    targetId: z.uuid().nullish(),
+    reason: z.enum(REPORT_REASONS),
+    details: z.string().trim().max(1000).nullish(),
+    /** Block them in the same step. */
+    block: z.boolean().default(false),
+  })
+  .refine((v) => v.kind === "user" || v.targetId, { message: "Say which review or note you're reporting", path: ["targetId"] });
+
 /** The current password is required so a borrowed, unlocked phone can't take over the account. */
 export const changeEmailSchema = z.object({
   email: z.email().max(254),
@@ -232,6 +259,10 @@ export type UpdateServicesInput = z.input<typeof updateServicesSchema>;
 export type DeleteAccountInput = z.input<typeof deleteAccountSchema>;
 export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export type ChangeEmailInput = z.input<typeof changeEmailSchema>;
+export type UpdatePrivacyInput = z.input<typeof updatePrivacySchema>;
+export type SendFriendRequestInput = z.input<typeof sendFriendRequestSchema>;
+export type BlockUserInput = z.input<typeof blockUserSchema>;
+export type ReportInput = z.input<typeof reportSchema>;
 export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
 export type LiveSongInput = z.input<typeof liveSongSchema>;
 export type PerformerRef = z.input<typeof performerRefSchema>;

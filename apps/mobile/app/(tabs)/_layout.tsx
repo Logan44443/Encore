@@ -3,11 +3,13 @@ import { Tabs, useRouter } from "expo-router";
 import { Pressable } from "react-native";
 import { useAuth } from "@/auth";
 import { Logo } from "@/components/Logo";
+import { useFriendRequests } from "@/friends";
 import { colors } from "@/theme";
 
 export default function TabsLayout() {
   const { user } = useAuth();
   const router = useRouter();
+  const waiting = useFriendRequests().data?.incoming.length ?? 0;
   return (
     <Tabs
       screenOptions={{
@@ -54,6 +56,9 @@ export default function TabsLayout() {
         options={{
           title: "Profile",
           href: user ? undefined : null,
+          // Friend requests waiting for an answer.
+          tabBarBadge: waiting || undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.brand2 },
           headerRight: () => (
             <Pressable onPress={() => router.push("/settings")} hitSlop={12} style={{ paddingHorizontal: 16 }} accessibilityLabel="Settings">
               <Ionicons name="settings-outline" color={colors.text} size={22} />

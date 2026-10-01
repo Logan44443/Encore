@@ -78,6 +78,13 @@
       "when": 1790823783214,
       "tag": "0010_username_case_insensitive",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790844703249,
+      "tag": "0011_friends",
+      "breakpoints": true
     }
   ]
 }

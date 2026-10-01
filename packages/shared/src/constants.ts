@@ -109,3 +109,27 @@ export function genresFor(mediaType: MediaType): Genre[] {
 export function genreName(mediaType: MediaType, id: number): string {
   return genresFor(mediaType).find((g) => g.id === id)?.name ?? "Other";
 }
+
+export const PROFILE_VISIBILITIES = ["private", "friends", "public"] as const;
+export type ProfileVisibility = (typeof PROFILE_VISIBILITIES)[number];
+
+export const PROFILE_VISIBILITY_LABELS: Record<ProfileVisibility, string> = {
+  private: "Only me",
+  friends: "Friends",
+  public: "Everyone on Encore",
+};
+
+export const REPORT_REASONS = ["spam", "harassment", "hate", "sexual", "impersonation", "other"] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];
+
+export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
+  spam: "Spam",
+  harassment: "Harassment or bullying",
+  hate: "Hate speech",
+  sexual: "Sexual content",
+  impersonation: "Pretending to be someone else",
+  other: "Something else",
+};
+
+export const REPORT_KINDS = ["user", "review", "show_note"] as const;
+export type ReportKind = (typeof REPORT_KINDS)[number];

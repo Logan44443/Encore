@@ -196,9 +196,71 @@ const renamed = await api.live.create({
   lineup: [{ performer: { mbid: "a74b1b7f-71a5-4011-9441-d0b5e4122711", name: "Not Radiohead", imageUrl: "https://example.com/x.jpg" } }],
 });
 assert.equal(renamed.show.lineup[0].performer.name, "Radiohead", "one user can't rename a shared artist");
-const publicProfile = await api.users.profile(`smoke_${suffix}`);
+
+// Friends: profiles are friends-only by default, so user 2 sees nothing until user 1 says yes
+const user1 = `smoke_${suffix}`;
+const user2 = `smoke2_${suffix}`;
+const locked = await api.users.profile(user1);
+assert.equal(locked.canView, false);
+assert.equal(locked.relationship, "none");
+assert.equal(locked.topMovies.length, 0);
+await assert.rejects(api.users.entries(user1), (err: { status?: number }) => err.status === 403);
+const found = await api.users.search(user1.slice(0, 8));
+assert.ok(found.users.some((u) => u.username === user1));
+assert.equal((await api.friends.request({ username: user1 })).relationship, "requested");
+assert.equal((await api.users.profile(user1)).relationship, "requested");
+
+token = auth.token; // back to user 1
+const { incoming } = await api.friends.requests();
+assert.equal(incoming[0]?.user.username, user2);
+assert.equal((await api.users.profile(user2)).relationship, "incoming");
+await api.friends.accept(incoming[0].id);
+assert.equal((await api.friends.list()).friends[0].username, user2);
+
+token = (await api.auth.login({ login: user2, password: "correct-horse" })).token;
+const friendProfile = await api.users.profile(user1);
+assert.equal(friendProfile.canView, true);
+assert.equal(friendProfile.relationship, "friend");
+assert.ok(friendProfile.recentLiveShows.some((s) => s.liked === "Encore was unreal"), "friends see notes by default");
+assert.ok((await api.users.entries(user1, "tv")).entries.some((e) => e.review === "All-time great."));
+
+// Turning off "share reviews" hides them from friends too
+token = auth.token;
+assert.equal((await api.account.updatePrivacy({ shareReviews: false })).user.privacy.shareReviews, false);
+token = (await api.auth.login({ login: user2, password: "correct-horse" })).token;
+const publicProfile = await api.users.profile(user1);
 assert.ok(publicProfile.recentLiveShows.length > 0);
 assert.ok(publicProfile.recentLiveShows.every((s) => s.liked === null && s.notes === null), "notes stay private");
+
+// Public profiles: anyone signed in sees rankings, never notes; nobody signed out sees anything
+token = auth.token;
+await api.account.updatePrivacy({ profileVisibility: "public", shareReviews: true });
+const stranger = await api.auth.register({ email: `smoke3_${suffix}@example.com`, username: `smoke3_${suffix}`, password: "correct-horse" });
+token = stranger.token;
+const seen = await api.users.profile(user1);
+assert.equal(seen.canView, true);
+assert.ok(seen.topMovies.length > 0 && seen.topShows.every((e) => e.review === null), "reviews are for friends only");
+token = null;
+await assert.rejects(api.users.profile(user1), (err: { status?: number }) => err.status === 401);
+
+// Blocking: user 1 blocks the stranger, who then can't find, view or request them
+token = auth.token;
+await api.safety.block({ userId: stranger.user.id });
+assert.equal((await api.safety.blocked()).users[0].id, stranger.user.id);
+token = stranger.token;
+await assert.rejects(api.users.profile(user1), (err: { status?: number }) => err.status === 404);
+await assert.rejects(api.friends.request({ username: user1 }), (err: { status?: number }) => err.status === 404);
+assert.ok(!(await api.users.search(user1)).users.some((u) => u.username === user1));
+await api.safety.report({ userId: auth.user.id, reason: "spam", details: "smoke test" });
+
+// Unfriending, and names that aren't allowed
+token = auth.token;
+await api.safety.unblock(stranger.user.id);
+const friendId = (await api.friends.list()).friends[0].id;
+await api.friends.remove(friendId);
+assert.equal((await api.friends.list()).friends.length, 0);
+await assert.rejects(api.account.updateProfile({ displayName: "H1tler fan" }), (err: { status?: number }) => err.status === 400);
+await api.account.updatePrivacy({ profileVisibility: "friends" });
 let expired = 0;
 const stale = createApiClient({ baseUrl, getToken: () => "not-a-real-token", onUnauthorized: () => expired++ });
 await assert.rejects(stale.auth.me(), (err: { status?: number }) => err.status === 401);

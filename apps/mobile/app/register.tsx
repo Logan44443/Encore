@@ -43,6 +43,13 @@ export default function Register() {
       <Field label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
       <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry />
       <ErrorText error={error} />
+      <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18 }}>
+        By creating an account you agree to the{" "}
+        <Text style={{ color: colors.brand, fontWeight: "700" }} onPress={() => router.push("/guidelines")}>
+          community guidelines
+        </Text>
+        .
+      </Text>
       <Button label={pending ? "…" : "Create account"} disabled={pending || password.length < 8 || username.length < 3} onPress={submit} />
       <Pressable onPress={() => router.replace("/login")}>
         <Text style={{ color: colors.brand, fontWeight: "700" }}>Already have an account? Sign in</Text>

@@ -1,4 +1,10 @@
-import { changeEmailSchema, changePasswordSchema, deleteAccountSchema, updateProfileSchema } from "@encore/shared";
+import {
+  changeEmailSchema,
+  changePasswordSchema,
+  deleteAccountSchema,
+  updatePrivacySchema,
+  updateProfileSchema,
+} from "@encore/shared";
 import { and, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -6,6 +12,7 @@ import { db } from "../db/client";
 import { users } from "../db/schema";
 import { hashPassword, requireAuth, signToken, verifyPassword, type AuthVars } from "../lib/auth";
 import { mailer } from "../lib/mailer";
+import { assertAcceptableNames } from "../lib/moderation";
 import { RateLimiter, tooMany } from "../lib/rate-limit";
 import { revokeSessionsNow } from "../lib/sessions";
 import { toUser, usernameIs } from "../lib/users";
@@ -45,11 +52,18 @@ export const accountRoutes = new Hono<AuthVars>()
   .patch("/profile", requireAuth, validate("json", updateProfileSchema), async (c) => {
     const userId = c.get("userId");
     const { displayName, username } = c.req.valid("json");
+    assertAcceptableNames(displayName, username);
     if (username !== undefined) {
       const taken = await db.query.users.findFirst({ where: and(usernameIs(username), ne(users.id, userId)) });
       if (taken) throw new HTTPException(409, { message: "Username taken" });
     }
     const [user] = await db.update(users).set({ displayName, username }).where(eq(users.id, userId)).returning();
+    if (!user) throw new HTTPException(401, { message: "Account no longer exists" });
+    return c.json({ user: toUser(user) });
+  })
+
+  .patch("/privacy", requireAuth, validate("json", updatePrivacySchema), async (c) => {
+    const [user] = await db.update(users).set(c.req.valid("json")).where(eq(users.id, c.get("userId"))).returning();
     if (!user) throw new HTTPException(401, { message: "Account no longer exists" });
     return c.json({ user: toUser(user) });
   })
@@ -108,8 +122,9 @@ export const accountRoutes = new Hono<AuthVars>()
 
   /**
    * Permanently deletes the signed-in account. Entries, season entries, live shows
-   * (with their lineups and setlists), watchlist items and dismissed titles all go
-   * with it via ON DELETE CASCADE. Shared catalog rows (titles, performers, venues)
+   * (with their lineups and setlists), watchlist items, dismissed titles, friendships,
+   * friend requests and blocks all go with it via ON DELETE CASCADE. Reports keep
+   * the reported username but lose the link to the account. Shared catalog rows (titles, performers, venues)
    * hold no personal data and stay.
    */
   .post("/delete", requireAuth, validate("json", deleteAccountSchema), async (c) => {

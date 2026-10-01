@@ -15,6 +15,10 @@ import type {
   RerankSeasonEntryInput,
   UpdateCountryInput,
   UpdateProfileInput,
+  UpdatePrivacyInput,
+  SendFriendRequestInput,
+  BlockUserInput,
+  ReportInput,
   UpdateServicesInput,
   UpdateEntryInput,
   UpdateLiveShowInput,
@@ -27,12 +31,15 @@ import type {
   EntryResult,
   Episode,
   Feed,
+  FriendRequest,
+  Person,
   GenreRecommendations,
   GenreSummary,
   LiveShow,
   Performer,
   Profile,
   ProviderStatus,
+  PublicUser,
   RankCandidate,
   Region,
   SeasonEntry,
@@ -225,6 +232,7 @@ export function createApiClient({
 
     account: {
       updateProfile: (body: UpdateProfileInput) => request<{ user: User }>("PATCH", p("/account/profile"), { body }),
+      updatePrivacy: (body: UpdatePrivacyInput) => request<{ user: User }>("PATCH", p("/account/privacy"), { body }),
       changeEmail: (body: ChangeEmailInput) => request<{ user: User }>("PUT", p("/account/email"), { body }),
       /** Signs out every other device; the returned token keeps this one signed in. */
       changePassword: (body: ChangePasswordInput) => request<AuthResponse>("PUT", p("/account/password"), { body }),
@@ -235,10 +243,33 @@ export function createApiClient({
     },
 
     users: {
-      profile: (username: string) => request<Profile>("GET", p(`/users/${username}`)),
+      /** People search by username or name (signed in only). */
+      search: (q: string) => request<{ users: Person[] }>("GET", p("/users/search"), { query: { q } }),
+      /** 404 for usernames that don't exist and for people who blocked you. */
+      profile: (username: string) => request<Profile>("GET", p(`/users/${encodeURIComponent(username)}`)),
       entries: (username: string, mediaType?: MediaType) =>
         request<{ entries: Entry[] }>("GET", p(`/users/${username}/entries`), { query: { mediaType } }),
       liveShows: (username: string) => request<{ shows: LiveShow[] }>("GET", p(`/users/${username}/live`)),
+    },
+
+    friends: {
+      list: () => request<{ friends: PublicUser[] }>("GET", p("/friends")),
+      requests: () => request<{ incoming: FriendRequest[]; outgoing: FriendRequest[] }>("GET", p("/friends/requests")),
+      /** Sends a request, or accepts theirs straight away if they already asked you. */
+      request: (body: SendFriendRequestInput) =>
+        request<{ relationship: "requested" | "friend" }>("POST", p("/friends/requests"), { body }),
+      accept: (requestId: string) => request<null>("POST", p(`/friends/requests/${requestId}/accept`)),
+      /** Declines a request sent to you, or cancels one you sent. */
+      dismissRequest: (requestId: string) => request<null>("DELETE", p(`/friends/requests/${requestId}`)),
+      remove: (userId: string) => request<null>("DELETE", p(`/friends/${userId}`)),
+    },
+
+    safety: {
+      blocked: () => request<{ users: PublicUser[] }>("GET", p("/blocks")),
+      /** Also ends any friendship and pending requests between you. */
+      block: (body: BlockUserInput) => request<null>("POST", p("/blocks"), { body }),
+      unblock: (userId: string) => request<null>("DELETE", p(`/blocks/${userId}`)),
+      report: (body: ReportInput) => request<null>("POST", p("/reports"), { body }),
     },
   };
 }

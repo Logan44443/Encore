@@ -1,4 +1,4 @@
-import type { Genre, MediaType, PerformerRole, ShowKind, SongReaction, Tier, WatchlistKind } from "./constants";
+import type { Genre, MediaType, PerformerRole, ProfileVisibility, ShowKind, SongReaction, Tier, WatchlistKind } from "./constants";
 import type { EpisodeRef } from "./schemas";
 
 export interface User {
@@ -13,6 +13,34 @@ export interface User {
   countryManual: boolean;
   /** Streaming services the user pays for, as TMDB provider ids ("My services"). */
   services: number[];
+  privacy: PrivacySettings;
+}
+
+export interface PrivacySettings {
+  /** Who can see rankings, scores and live shows. */
+  profileVisibility: ProfileVisibility;
+  /** Friends also see reviews and show notes. Nobody else ever does. */
+  shareReviews: boolean;
+  /** Appears in people search. */
+  searchable: boolean;
+  allowFriendRequests: boolean;
+}
+
+/**
+ * How the signed-in viewer relates to someone: themselves, a friend, a request
+ * they sent ("requested") or one waiting for them to answer ("incoming").
+ */
+export type Relationship = "self" | "friend" | "requested" | "incoming" | "none";
+
+/** Someone in search results or a list of people, with where you stand with them. */
+export interface Person extends PublicUser {
+  relationship: Relationship;
+}
+
+export interface FriendRequest {
+  id: string;
+  user: PublicUser;
+  createdAt: string;
 }
 
 /** What other people can see about a user. */
@@ -283,6 +311,13 @@ export interface ProfileStats {
 
 export interface Profile {
   user: PublicUser;
+  relationship: Relationship;
+  /** The pending request between you, when relationship is "requested" or "incoming". */
+  requestId: string | null;
+  /** False when their privacy settings hide their rankings from you; the lists below are then empty. */
+  canView: boolean;
+  /** Whether they take friend requests from you. */
+  canRequest: boolean;
   stats: ProfileStats;
   topMovies: Entry[];
   topShows: Entry[];

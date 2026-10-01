@@ -205,11 +205,35 @@ Earlier migrations (`0000`–`0003`) are the original web app: titles, entries, 
 | `POST /auth/register` | Now accepts an optional `country` |
 | `GET /auth/me` etc. | `User` now includes `country` and `countryManual` |
 
+## Friends, privacy and safety
+
+Design: `design/friend-system.md` in the project files. Built in phases; phase 1 is in.
+
+- **Friends are mutual.** A request is accepted or declined; asking someone who already asked you accepts it. Tables `friend_requests` and `friendships` (two rows per pair).
+- **Profiles need sign-in.** `/users/*` returns 401 signed out. What you see depends on the owner's `profile_visibility` (`private`, `friends` default, `public`). Reviews and show notes go to friends only, when the owner's `share_reviews` is on (default on), and never to anyone else. Rules live in `apps/api/src/lib/social.ts`.
+- **Blocks** (`blocks`) hide both people from each other: profile and search return nothing, requests fail as "not found", and any friendship or request between them is removed.
+- **Reports** (`reports`) are stored for review. List them with `npm run reports -w @encore/api`, close one with `npm run reports -w @encore/api -- resolve <id> actioned|dismissed`. Apple expects action within a day. There is no email alert yet (no email provider).
+- **Names** are screened for slurs at sign-up and on rename (`apps/api/src/lib/moderation.ts`).
+- The website's public profile page now needs sign-in too; the website is on hold.
+
+| Method & path | Purpose |
+| --- | --- |
+| `GET /users/search?q=` | Find people by username or name |
+| `GET /users/:username` | Profile plus `relationship`, `requestId`, `canView`, `canRequest` |
+| `GET /friends` · `GET /friends/requests` | Friends; incoming and sent requests |
+| `POST /friends/requests` `{ username }` | Send (or accept their pending) request |
+| `POST /friends/requests/:id/accept` · `DELETE /friends/requests/:id` | Accept; decline or cancel |
+| `DELETE /friends/:userId` | Unfriend |
+| `GET /blocks` · `POST /blocks` `{ userId }` · `DELETE /blocks/:userId` | Block list, block, unblock |
+| `POST /reports` | Report a user, review or show note (optionally block too) |
+| `PATCH /account/privacy` | Visibility, share reviews, search, friend requests |
+
 ## iOS app map (`apps/mobile`)
 
 - `app/` — screens (expo-router file routes):
   - `(tabs)/`: `index` (Home), `discover`, `watchlist`, `lists`, `live`, `profile`
   - Stack screens: `title/[type]/[id]`, `recommended`, `country`, `show/new`, `show/[id]`, `user/[username]`, `login`, `register`
+  - Friends: `friends/index` (friends and requests), `friends/add` (search, share profile link), `settings/privacy`, `settings/blocked`, `report` (modal), `guidelines`
   - `_layout.tsx`: the root stack and the list of screen titles
 - `src/`:
   - Setup: `api.ts` (client plus keychain token), `auth.tsx` (auth context, country sync, `useCountry`), `region.ts` (device region, country names, flags)
