@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, RefreshControl, Text, View } from "react-native";
 import { api } from "@/api";
+import { PerformerPhoto } from "@/components/PerformerPhoto";
 import { PersonRow, RowButton } from "@/components/PersonRow";
 import { Poster } from "@/components/Poster";
 import { AuthGate, Card, Empty, Loading, Muted, Screen, SectionTitle } from "@/components/ui";
@@ -99,6 +100,7 @@ function TagCard({ tag, busy, act }: { tag: PendingTag; busy: boolean; act: (act
     <Card>
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
         {tag.title ? <Poster uri={tag.title.posterUrl} name={tag.title.name} width={44} /> : null}
+        {tag.show ? <PerformerPhoto uri={tag.show.imageUrl} name={tag.show.name} size={44} square /> : null}
         <Text style={{ color: colors.text, flex: 1, lineHeight: 20 }}>
           <Text style={{ fontWeight: "800" }}>{tag.by.displayName}</Text> says you watched{" "}
           <Text style={{ fontWeight: "800" }}>{what}</Text> together{when}.

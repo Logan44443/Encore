@@ -2,7 +2,7 @@ import type { ActivityItem } from "@encore/shared";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { companionNames } from "../companions";
-import { showTitle } from "../format";
+import { showPhoto, showTitle } from "../format";
 import { colors, tierColor } from "../theme";
 import { Poster } from "./Poster";
 import { Avatar, ScoreBadge } from "./ui";
@@ -23,13 +23,12 @@ export function ActivityRow({ item }: { item: ActivityItem }) {
   const name = isEntry ? item.entry.title.name : showTitle(item.show);
   const withWhom = companionNames(isEntry ? item.entry.companions : item.show.companions);
   const review = isEntry ? item.entry.review : item.show.liked;
-  const headliner = !isEntry ? (item.show.lineup.find((s) => s.role === "headliner") ?? item.show.lineup[0]) : null;
   const open = () =>
     isEntry ? router.push(`/title/${item.entry.title.mediaType}/${item.entry.title.tmdbId}`) : router.push(`/user/${item.user.username}`);
 
   return (
     <Pressable onPress={open} style={styles.row}>
-      <Poster uri={isEntry ? item.entry.title.posterUrl : (headliner?.performer.imageUrl ?? null)} name={name} width={44} />
+      <Poster uri={isEntry ? item.entry.title.posterUrl : showPhoto(item.show).uri} name={name} width={44} />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <Avatar name={item.user.displayName} size={18} />

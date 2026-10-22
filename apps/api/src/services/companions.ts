@@ -182,31 +182,47 @@ export async function pendingTags(userId: string): Promise<PendingTag[]> {
     .where(and(eq(watchCompanions.friendId, userId), eq(watchCompanions.confirmed, false)))
     .orderBy(desc(watchCompanions.createdAt))
     .limit(100);
-  const showNames = await headlinerNames(rows.flatMap((r) => (r.show?.id && !r.show.name ? [r.show.id] : [])));
+  const leads = await showLeads(rows.flatMap((r) => (r.show?.id ? [r.show.id] : [])));
   return rows.map((r) => ({
     id: r.id,
     by: toPublicUser(r.by),
     title: r.title?.tmdbId ? toTitleSummary(r.title) : null,
     show: r.show?.id
-      ? { id: r.show.id, name: r.show.name ?? showNames.get(r.show.id) ?? "Live show", date: r.show.date, venue: r.venue }
+      ? {
+          id: r.show.id,
+          name: r.show.name ?? leads.get(r.show.id)?.name ?? "Live show",
+          date: r.show.date,
+          venue: r.venue,
+          imageUrl: leads.get(r.show.id)?.imageUrl ?? null,
+        }
       : null,
     date: r.show?.id ? r.show.date : (r.watchedAt ?? null),
     createdAt: r.createdAt.toISOString(),
   }));
 }
 
-/** Headliner name per show, for shows logged without a name of their own. */
-async function headlinerNames(showIds: string[]): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
+/**
+ * Per show: the headliner's name (for shows logged without a name of their own)
+ * and a photo, the headliner's or else the first act on the bill who has one.
+ */
+async function showLeads(showIds: string[]): Promise<Map<string, { name: string; imageUrl: string | null }>> {
+  const out = new Map<string, { name: string; imageUrl: string | null }>();
   if (!showIds.length) return out;
   const shows = await db.query.liveShows.findMany({
     where: inArray(liveShows.id, showIds),
     columns: { id: true },
-    with: { lineup: { with: { performer: { columns: { name: true } } } } },
+    with: {
+      lineup: {
+        orderBy: (l, { asc }) => [asc(l.position)],
+        with: { performer: { columns: { name: true, imageUrl: true } } },
+      },
+    },
   });
   for (const s of shows) {
     const slot = s.lineup.find((l) => l.role === "headliner") ?? s.lineup[0];
-    if (slot) out.set(s.id, slot.performer.name);
+    if (!slot) continue;
+    const pictured = slot.performer.imageUrl ? slot : s.lineup.find((l) => l.performer.imageUrl);
+    out.set(s.id, { name: slot.performer.name, imageUrl: pictured?.performer.imageUrl ?? null });
   }
   return out;
 }

@@ -6,9 +6,10 @@ import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { api } from "@/api";
 import { EntryRow } from "@/components/EntryRow";
+import { PerformerPhoto } from "@/components/PerformerPhoto";
 import { AuthGate, Avatar, Button, Card, Empty, ErrorText, H1, Loading, Muted, Screen, SettingsGroup, SettingsRow, showMenu } from "@/components/ui";
 import { companionNames } from "@/companions";
-import { errorMessage, formatDate, showTitle } from "@/format";
+import { errorMessage, formatDate, showPhoto, showTitle } from "@/format";
 import { useFriendRequests, useFriends, useRefreshFriends } from "@/friends";
 import { colors } from "@/theme";
 
@@ -73,13 +74,17 @@ export function ProfileBody({ username }: { username: string }) {
 
 function ShowCard({ show }: { show: LiveShow }) {
   const withWhom = companionNames(show.companions);
+  const face = showPhoto(show);
   return (
-    <Card>
-      <Text style={{ color: colors.text, fontWeight: "700" }}>{showTitle(show)}</Text>
-      <Muted>
-        {formatDate(show.date)}
-        {withWhom ? ` · with ${withWhom}` : ""}
-      </Muted>
+    <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+      <PerformerPhoto uri={face.uri} name={face.name} size={52} square />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ color: colors.text, fontWeight: "700" }}>{showTitle(show)}</Text>
+        <Muted>
+          {formatDate(show.date)}
+          {withWhom ? ` · with ${withWhom}` : ""}
+        </Muted>
+      </View>
     </Card>
   );
 }
