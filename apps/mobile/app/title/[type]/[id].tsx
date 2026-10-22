@@ -98,39 +98,7 @@ export default function TitleScreen() {
       <Poster uri={title.posterUrl} name={title.name} width={160} />
       <Muted>{mediaType === "movie" ? "Movie" : "TV series"}</Muted>
       <H1>{title.year ? `${title.name} (${title.year})` : title.name}</H1>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {title.genres.map((g) => (
-          <Chip key={g.id} label={g.name} onPress={() => router.push(`/discover?type=${mediaType}&genre=${g.id}`)} />
-        ))}
-      </View>
-      <Muted>{title.overview}</Muted>
-      <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} titleName={title.name} />
-      {user ? <FriendsOnTitle mediaType={mediaType} tmdbId={tmdbId} /> : null}
-
-      {!myEntry && showScore && (
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "center", backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 14 }}>
-          <ScoreBadge score={showScore.score} color={tierColor[tierForScore(showScore.score)]} size={64} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ color: colors.text, fontWeight: "700" }}>Your score · {sourceNote(showScore.rankedSeasons, "season")}</Text>
-            <Muted>Rank the show itself to set your own score and place it in your {showScore.genreName} list.</Muted>
-          </View>
-        </View>
-      )}
-
-      {!myEntry && (
-        <View style={{ gap: 8 }}>
-          <Button label={mediaType === "movie" ? "Rank this movie" : "Rank this show"} onPress={startRank} />
-          {user && (
-            <Button
-              label={watch.saved ? "On your watchlist" : "Add to watchlist"}
-              tone="ghost"
-              disabled={watch.pending}
-              onPress={watch.toggle}
-            />
-          )}
-        </View>
-      )}
-
+      {/* Your score comes first when you've ranked it (or its seasons). */}
       {myEntry && (
         <EntryCard
           entry={myEntry}
@@ -155,6 +123,37 @@ export default function TitleScreen() {
           error={saveDetails.error}
           onOpenGenre={() => router.push("/lists")}
         />
+      )}
+      {!myEntry && showScore && (
+        <View style={{ flexDirection: "row", gap: 12, alignItems: "center", backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 14 }}>
+          <ScoreBadge score={showScore.score} color={tierColor[tierForScore(showScore.score)]} size={64} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ color: colors.text, fontWeight: "700" }}>Your score · {sourceNote(showScore.rankedSeasons, "season")}</Text>
+            <Muted>Rank the show itself to set your own score and place it in your {showScore.genreName} list.</Muted>
+          </View>
+        </View>
+      )}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {title.genres.map((g) => (
+          <Chip key={g.id} label={g.name} onPress={() => router.push(`/discover?type=${mediaType}&genre=${g.id}`)} />
+        ))}
+      </View>
+      <Muted>{title.overview}</Muted>
+      <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} titleName={title.name} />
+      {user ? <FriendsOnTitle mediaType={mediaType} tmdbId={tmdbId} /> : null}
+
+      {!myEntry && (
+        <View style={{ gap: 8 }}>
+          <Button label={mediaType === "movie" ? "Rank this movie" : "Rank this show"} onPress={startRank} />
+          {user && (
+            <Button
+              label={watch.saved ? "On your watchlist" : "Add to watchlist"}
+              tone="ghost"
+              disabled={watch.pending}
+              onPress={watch.toggle}
+            />
+          )}
+        </View>
       )}
 
       {mediaType === "tv" && user && title.seasons.length > 0 && (
