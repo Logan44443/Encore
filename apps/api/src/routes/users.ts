@@ -13,7 +13,7 @@ import { validate } from "../lib/validate";
 import { withEntryCompanions, withShowCompanions } from "../services/companions";
 import { listEntries } from "../services/entries";
 import { compare } from "../services/friend-rankings";
-import { listLiveShows, liveStats } from "../services/live";
+import { getLiveShow, listLiveShows, liveStats } from "../services/live";
 
 /**
  * Reviews and show notes are only for their author, and for friends when the
@@ -158,6 +158,16 @@ export const userRoutes = new Hono<AuthVars>()
     const { user, reviews } = await findViewableUser(viewerId, c.req.valid("param").username);
     const shows = await listLiveShows(user.id);
     return c.json({ shows: await withShowCompanions(reviews ? shows : shows.map(withoutNotes), viewerId, user.id) });
+  })
+
+  /** One of their shows, for its page (404 unless it's theirs). */
+  .get("/:username/live/:id", validate("param", z.object({ username: z.string().max(64), id: z.uuid() })), async (c) => {
+    const viewerId = c.get("userId");
+    const { username, id } = c.req.valid("param");
+    const { user, reviews } = await findViewableUser(viewerId, username);
+    const show = await getLiveShow(id, user.id);
+    const [shown] = await withShowCompanions([reviews ? show : withoutNotes(show)], viewerId, user.id);
+    return c.json({ show: shown });
   })
 
   .get("/:username/compare", usernameParam, async (c) => {

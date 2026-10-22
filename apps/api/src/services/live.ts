@@ -36,6 +36,7 @@ type ShowRow = typeof liveShows.$inferSelect & {
 function toLiveShow(r: ShowRow): LiveShow {
   return {
     id: r.id,
+    userId: r.userId,
     kind: r.kind,
     name: r.name,
     date: r.date,

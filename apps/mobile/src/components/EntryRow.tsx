@@ -28,12 +28,19 @@ export function EntryRow({ entry, rank }: { entry: Entry; rank?: number }) {
   );
 }
 
-/** A live show in the same shape as EntryRow, with the headliner's photo in place of a poster. */
-export function LiveShowRow({ show }: { show: LiveShow }) {
+/**
+ * A live show in the same shape as EntryRow, with the headliner's photo in place
+ * of a poster. Pass `owner` (their username) for someone else's show.
+ */
+export function LiveShowRow({ show, owner }: { show: LiveShow; owner?: string }) {
   const router = useRouter();
   const name = showTitle(show);
+  const withWhom = companionNames(show.companions);
   return (
-    <Pressable onPress={() => router.push(`/show/${show.id}`)} style={styles.row}>
+    <Pressable
+      onPress={() => router.push(owner ? { pathname: "/show/[id]", params: { id: show.id, user: owner } } : `/show/${show.id}`)}
+      style={styles.row}
+    >
       <Poster uri={showPhoto(show).uri} name={name} width={44} />
       <View style={{ flex: 1 }}>
         <Text style={styles.name} numberOfLines={1}>
@@ -43,6 +50,7 @@ export function LiveShowRow({ show }: { show: LiveShow }) {
           {SHOW_KIND_LABELS[show.kind]}
           {show.venue ? ` · ${show.venue.name}` : ""}
           {` · ${show.date.slice(0, 4)}`}
+          {withWhom ? ` · with ${withWhom}` : ""}
         </Text>
       </View>
       {show.rating !== null ? <ScoreBadge score={show.rating} color={colors.brand} /> : null}
