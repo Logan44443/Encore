@@ -25,6 +25,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings/password" options={{ title: "Change password" }} />
           <Stack.Screen name="delete-account" options={{ title: "Delete account" }} />
           <Stack.Screen name="title/[type]/[id]" options={{ title: "" }} />
+          <Stack.Screen name="season/[id]/[season]" options={{ title: "Season" }} />
           <Stack.Screen name="show/new" options={{ title: "Add a show" }} />
           <Stack.Screen name="show/[id]" options={{ title: "Live show" }} />
           <Stack.Screen name="user/[username]" options={{ title: "Profile" }} />

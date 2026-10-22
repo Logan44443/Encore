@@ -80,6 +80,27 @@ assert.equal(bb.entry.favoriteEpisode?.episode, 14);
 const title = await api.catalog.title("tv", 1396);
 assert.equal(title.myEntry?.id, bb.entry.id);
 
+// Episode rankings roll up: episodes → season → show, unless you ranked the season or show yourself
+const BCS = 60059;
+const pilot = await api.episodes.create({ tmdbId: BCS, seasonNumber: 1, episodeNumber: 1, tier: "liked", aboveEntryId: null });
+await api.episodes.create({ tmdbId: BCS, seasonNumber: 1, episodeNumber: 2, tier: "liked", aboveEntryId: pilot.entry.id });
+await api.episodes.create({ tmdbId: 1396, seasonNumber: 1, episodeNumber: 1, tier: "fine", aboveEntryId: null });
+await assert.rejects(
+  api.episodes.create({ tmdbId: BCS, seasonNumber: 1, episodeNumber: 1, tier: "fine", aboveEntryId: null }),
+  (err: { status?: number }) => err.status === 409,
+);
+const tv = await api.tv();
+const bcsSeason = tv.seasons.find((x) => x.tmdbId === BCS && x.seasonNumber === 1)!;
+assert.equal(bcsSeason.source, "episodes");
+assert.equal(bcsSeason.rankedEpisodes, 2);
+const bcsShow = tv.shows.find((x) => x.title.tmdbId === BCS)!;
+assert.equal(bcsShow.source, "seasons");
+assert.equal(bcsShow.score, bcsSeason.score);
+const bbShow = tv.shows.find((x) => x.title.tmdbId === 1396)!;
+assert.equal(bbShow.source, "ranked", "a show you ranked keeps its own score");
+assert.equal(bbShow.score, bb.entry.score);
+assert.equal(tv.episodes.length, 3);
+
 await api.entries.remove(b.entry.id);
 const after = await api.entries.list({ mediaType: "movie", genreId: THRILLER });
 assert.equal(after.entries.length, 3);

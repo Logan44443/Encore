@@ -126,6 +126,18 @@ export const rerankSeasonEntrySchema = z.object({
   aboveEntryId: z.uuid().nullable(),
 });
 
+/** Rank one episode against the other episodes of the same show (any season). */
+export const createEpisodeEntrySchema = z.object({
+  tmdbId: z.number().int().positive(),
+  seasonNumber: z.number().int().min(0).max(200),
+  episodeNumber: z.number().int().min(1).max(5000),
+  tier: tierSchema,
+  /** Episode entry that should sit directly above the new one; null = top of that tier. */
+  aboveEntryId: z.uuid().nullable(),
+});
+
+export const rerankEpisodeEntrySchema = rerankSeasonEntrySchema;
+
 export const dismissTitleSchema = z.object({
   mediaType: mediaTypeSchema,
   tmdbId: z.number().int().positive(),
@@ -266,6 +278,8 @@ export type UpdateEntryInput = z.input<typeof updateEntrySchema>;
 export type RerankEntryInput = z.input<typeof rerankEntrySchema>;
 export type CreateSeasonEntryInput = z.input<typeof createSeasonEntrySchema>;
 export type RerankSeasonEntryInput = z.input<typeof rerankSeasonEntrySchema>;
+export type CreateEpisodeEntryInput = z.input<typeof createEpisodeEntrySchema>;
+export type RerankEpisodeEntryInput = z.input<typeof rerankEpisodeEntrySchema>;
 export type DismissTitleInput = z.input<typeof dismissTitleSchema>;
 export type UpdateCountryInput = z.input<typeof updateCountrySchema>;
 export type UpdateServicesInput = z.input<typeof updateServicesSchema>;

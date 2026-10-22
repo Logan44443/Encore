@@ -1,8 +1,10 @@
 import {
   createEntrySchema,
+  createEpisodeEntrySchema,
   createSeasonEntrySchema,
   mediaTypeSchema,
   rerankEntrySchema,
+  rerankEpisodeEntrySchema,
   rerankSeasonEntrySchema,
   tierSchema,
   updateEntrySchema,
@@ -29,6 +31,14 @@ import {
   rerankSeasonEntry,
   seasonCandidates,
 } from "../services/seasons";
+import {
+  createEpisodeEntry,
+  deleteEpisodeEntry,
+  episodeCandidates,
+  listEpisodeEntries,
+  rerankEpisodeEntry,
+} from "../services/episodes";
+import { tvRankings } from "../services/tv-rankings";
 
 const idParam = validate("param", z.object({ id: z.uuid() }));
 
@@ -102,6 +112,47 @@ export const entryRoutes = new Hono<AuthVars>()
     await deleteSeasonEntry(c.get("userId"), c.req.valid("param").id);
     return c.body(null, 204);
   })
+
+  .get(
+    "/episodes",
+    validate("query", z.object({ tmdbId: z.coerce.number().int().positive() })),
+    async (c) => c.json({ episodes: await listEpisodeEntries(c.get("userId"), c.req.valid("query").tmdbId) }),
+  )
+
+  .get(
+    "/episodes/candidates",
+    validate(
+      "query",
+      z.object({
+        tmdbId: z.coerce.number().int().positive(),
+        tier: tierSchema,
+        excludeEntryId: z.uuid().optional(),
+      }),
+    ),
+    async (c) => {
+      const { tmdbId, tier, excludeEntryId } = c.req.valid("query");
+      return c.json({ candidates: await episodeCandidates(c.get("userId"), tmdbId, tier, excludeEntryId) });
+    },
+  )
+
+  .post("/episodes", validate("json", createEpisodeEntrySchema), async (c) =>
+    c.json(await createEpisodeEntry(c.get("userId"), c.req.valid("json")), 201),
+  )
+
+  .put("/episodes/:id/rank", idParam, validate("json", rerankEpisodeEntrySchema), async (c) =>
+    c.json(await rerankEpisodeEntry(c.get("userId"), c.req.valid("param").id, c.req.valid("json"))),
+  )
+
+  .delete("/episodes/:id", idParam, async (c) => {
+    await deleteEpisodeEntry(c.get("userId"), c.req.valid("param").id);
+    return c.body(null, 204);
+  })
+
+  .get(
+    "/tv",
+    validate("query", z.object({ tmdbId: z.coerce.number().int().positive().optional() })),
+    async (c) => c.json(await tvRankings(c.get("userId"), c.req.valid("query").tmdbId)),
+  )
 
   .post("/", validate("json", createEntrySchema), async (c) =>
     c.json(await createEntry(c.get("userId"), c.req.valid("json")), 201),

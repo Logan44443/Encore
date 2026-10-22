@@ -100,6 +100,7 @@ export function RankSheet({
     queryClient.invalidateQueries({ queryKey: ["genres"] });
     queryClient.invalidateQueries({ queryKey: ["watchlist"] });
     queryClient.invalidateQueries({ queryKey: ["feed"] });
+    queryClient.invalidateQueries({ queryKey: ["tv"] });
   };
 
   const save = useMutation({

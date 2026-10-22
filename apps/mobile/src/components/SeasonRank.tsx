@@ -19,6 +19,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { colors, tierColor } from "../theme";
+import { invalidateTv } from "../tv";
 import { Button, Chip, ErrorText, Loading, Muted, ScoreBadge } from "./ui";
 
 type Mode = "batch" | "one" | "rerank";
@@ -26,18 +27,20 @@ type Mode = "batch" | "one" | "rerank";
 /**
  * Ranks seasons of one show against each other with the same head-to-head
  * questions used for genre lists. `batch` walks every selected season;
- * `one` ranks a single season; `rerank` moves an existing season.
+ * `one` ranks a single season (`only` skips picking it); `rerank` moves an existing season.
  */
 export function SeasonRank({
   title,
   mode,
   existing,
+  only,
   onFinished,
   onSkip,
 }: {
   title: Title;
   mode: Mode;
   existing?: SeasonEntry | null;
+  only?: number;
   onFinished: () => void;
   onSkip?: () => void;
 }) {
@@ -46,7 +49,9 @@ export function SeasonRank({
   const [selected, setSelected] = useState<number[]>(() =>
     existing ? [existing.seasonNumber] : mode === "one" ? [] : numbered.map((s) => s.seasonNumber),
   );
-  const [queue, setQueue] = useState<number[] | null>(mode === "rerank" && existing ? [existing.seasonNumber] : null);
+  const [queue, setQueue] = useState<number[] | null>(
+    mode === "rerank" && existing ? [existing.seasonNumber] : mode === "one" && only !== undefined ? [only] : null,
+  );
   const [cursor, setCursor] = useState(0);
   const [tier, setTier] = useState<Tier | null>(null);
   const [cmp, setCmp] = useState<ComparisonState | null>(null);
@@ -94,10 +99,10 @@ export function SeasonRank({
       }
       return api.seasons.create({ tmdbId: title.tmdbId, seasonNumber: currentNumber, tier, aboveEntryId });
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       saving.current = false;
       setSavedCount((n) => n + 1);
-      await queryClient.invalidateQueries({ queryKey: ["seasons", title.tmdbId] });
+      invalidateTv(queryClient, title.tmdbId);
       const next = cursor + 1;
       if (queue && next < queue.length) {
         setCursor(next);
@@ -278,11 +283,13 @@ export function SeasonSheet({
   title,
   mode,
   existing,
+  only,
   onClose,
 }: {
   title: Title;
   mode: Mode;
   existing?: SeasonEntry | null;
+  only?: number;
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -295,7 +302,7 @@ export function SeasonSheet({
             <Text style={{ color: colors.brand, fontWeight: "700" }}>Close</Text>
           </Pressable>
         </View>
-        <SeasonRank title={title} mode={mode} existing={existing} onFinished={onClose} onSkip={mode === "batch" ? onClose : undefined} />
+        <SeasonRank title={title} mode={mode} existing={existing} only={only} onFinished={onClose} onSkip={mode === "batch" ? onClose : undefined} />
       </ScrollView>
     </Modal>
   );
