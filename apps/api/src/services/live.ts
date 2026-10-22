@@ -4,7 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import type { z } from "zod";
 import { db, type DB } from "../db/client";
 import { liveShowPerformers, liveShows, liveShowSongs, performers, venues } from "../db/schema";
-import { performerImage } from "../providers/deezer";
+import { performerPhoto } from "../providers/performer-photo";
 import { confirmTag, resolveCompanions, tagOnShow, withShowCompanions, writeCompanions } from "./companions";
 import { clearSeenLive } from "./watchlist-sync";
 
@@ -83,9 +83,40 @@ async function withImages(lineup: Slot[]): Promise<Slot[]> {
     lineup.map(async (slot) =>
       slot.performer.imageUrl
         ? slot
-        : { ...slot, performer: { ...slot.performer, imageUrl: await performerImage(slot.performer.name) } },
+        : { ...slot, performer: { ...slot.performer, imageUrl: await performerPhoto(slot.performer) } },
     ),
   );
+}
+
+const photoTriedAt = new Map<number, number>();
+const PHOTO_RETRY = 6 * 60 * 60 * 1000;
+
+/**
+ * Shows saved before performer photos existed (or while the photo sources were
+ * down) have performers with no picture. Look them up on read with a short time
+ * budget so the screen isn't held up, and save what turns up so the next load
+ * has it either way.
+ */
+async function fillMissingPhotos(rows: ShowRow[]): Promise<void> {
+  const missing = new Map<number, ShowRow["lineup"][number]["performer"]>();
+  for (const r of rows) for (const slot of r.lineup) if (!slot.performer.imageUrl) missing.set(slot.performer.id, slot.performer);
+  const now = Date.now();
+  const todo = [...missing.values()].filter((p) => now - (photoTriedAt.get(p.id) ?? 0) > PHOTO_RETRY).slice(0, 12);
+  if (!todo.length) return;
+  if (photoTriedAt.size > 10_000) photoTriedAt.clear();
+  for (const p of todo) photoTriedAt.set(p.id, now);
+  const work = Promise.all(
+    todo.map(async (p) => {
+      const url = await performerPhoto(p);
+      if (!url) return;
+      await db
+        .update(performers)
+        .set({ imageUrl: url })
+        .where(and(eq(performers.id, p.id), isNull(performers.imageUrl)));
+      for (const r of rows) for (const slot of r.lineup) if (slot.performer.id === p.id) slot.performer.imageUrl = url;
+    }),
+  ).catch((err) => console.warn(`[live] performer photo backfill failed: ${(err as Error).message}`));
+  await Promise.race([work, new Promise((r) => setTimeout(r, 2500))]);
 }
 
 export async function upsertPerformer(tx: Tx | DB, p: Slot["performer"]): Promise<number> {
@@ -193,6 +224,7 @@ export async function getLiveShow(id: string, userId?: string): Promise<LiveShow
     with: withRelations,
   });
   if (!row) throw new HTTPException(404, { message: "Show not found" });
+  await fillMissingPhotos([row as ShowRow]);
   return toLiveShow(row as ShowRow);
 }
 
@@ -203,6 +235,7 @@ export async function listLiveShows(userId: string, limit = 500): Promise<LiveSh
     orderBy: (s, { desc }) => [desc(s.date), desc(s.createdAt)],
     limit,
   });
+  await fillMissingPhotos(rows as ShowRow[]);
   return (rows as ShowRow[]).map(toLiveShow);
 }
 
@@ -221,6 +254,7 @@ export async function recentShowsBy(userIds: string[], before: Date | null, limi
     orderBy: (s, { desc }) => [desc(s.createdAt)],
     limit,
   });
+  await fillMissingPhotos(rows as ShowRow[]);
   return (rows as ShowRow[]).map((r) => ({ userId: r.userId, show: toLiveShow(r) }));
 }
 
