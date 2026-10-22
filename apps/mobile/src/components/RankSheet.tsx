@@ -385,7 +385,11 @@ export function EpisodeField({
   onChange: (v: EpisodeRef | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [season, setSeason] = useState<number | null>(value?.season ?? null);
+  // A show with one season (specials aside) opens straight onto its episodes.
+  const numbered = seasons.filter((s) => s.seasonNumber > 0);
+  const onlySeason = seasons.length === 1 ? seasons[0].seasonNumber : numbered.length === 1 ? numbered[0].seasonNumber : null;
+  const canPickSeason = seasons.length > 1;
+  const [season, setSeason] = useState<number | null>(value?.season ?? onlySeason);
   const episodes = useQuery({
     queryKey: ["episodes", tmdbId, season],
     queryFn: () => api.catalog.season(tmdbId, season!),
@@ -395,7 +399,13 @@ export function EpisodeField({
   return (
     <View style={{ gap: 6 }}>
       <Text style={styles.label}>{label}</Text>
-      <Pressable onPress={() => setOpen(true)} style={styles.input}>
+      <Pressable
+        onPress={() => {
+          setSeason(value?.season ?? onlySeason);
+          setOpen(true);
+        }}
+        style={styles.input}
+      >
         <Text style={{ color: value ? colors.text : colors.muted }}>{value ? formatEpisode(value) : "Choose an episode"}</Text>
       </Pressable>
       {value && (
@@ -406,9 +416,9 @@ export function EpisodeField({
       <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.ink }} contentContainerStyle={{ padding: 20, gap: 10 }}>
           <View style={styles.top}>
-            <Text style={styles.h2}>{season === null ? label : `Season ${season}`}</Text>
-            <Pressable onPress={() => (season === null ? setOpen(false) : setSeason(null))}>
-              <Text style={styles.close}>{season === null ? "Close" : "Back"}</Text>
+            <Text style={styles.h2}>{season === null || !canPickSeason ? label : season === 0 ? "Specials" : `Season ${season}`}</Text>
+            <Pressable onPress={() => (season === null || !canPickSeason ? setOpen(false) : setSeason(null))}>
+              <Text style={styles.close}>{season === null || !canPickSeason ? "Close" : "Back"}</Text>
             </Pressable>
           </View>
           {season === null ? (
