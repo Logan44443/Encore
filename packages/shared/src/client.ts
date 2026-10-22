@@ -304,6 +304,9 @@ export function createApiClient({
       entries: (username: string, mediaType?: MediaType) =>
         request<{ entries: Entry[] }>("GET", p(`/users/${username}/entries`), { query: { mediaType } }),
       liveShows: (username: string) => request<{ shows: LiveShow[] }>("GET", p(`/users/${username}/live`)),
+      /** One of their shows (404 unless it's theirs and you can see their profile). */
+      liveShow: (username: string, id: string) =>
+        request<{ show: LiveShow }>("GET", p(`/users/${encodeURIComponent(username)}/live/${id}`)),
       /** Taste match and side-by-side scores with a friend (or anyone whose profile you can see). */
       compare: (username: string) => request<Comparison>("GET", p(`/users/${username}/compare`)),
       /** Movies, series and shows the two of you watched together. */

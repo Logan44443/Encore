@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { Alert, Linking, ScrollView, Text, View } from "react-native";
 import { api } from "@/api";
+import { useAuth } from "@/auth";
 import { LiveForm } from "@/components/LiveForm";
 import { PerformerPhoto } from "@/components/PerformerPhoto";
 import { AuthGate, Button, Card, ErrorText, H1, Loading, Muted, Screen } from "@/components/ui";
@@ -24,12 +25,19 @@ export default function ShowDetail() {
 }
 
 function Detail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `user` is set when opening someone else's show (from their profile): read-only.
+  const { id, user: owner } = useLocalSearchParams<{ id: string; user?: string }>();
+  const { user: me } = useAuth();
+  const theirs = Boolean(owner && owner.toLowerCase() !== me?.username.toLowerCase());
   const router = useRouter();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const { data, error, isLoading } = useQuery({ queryKey: ["live", id], queryFn: () => api.live.get(id!), enabled: Boolean(id) });
+  const { data, error, isLoading } = useQuery({
+    queryKey: theirs ? ["live", "user", owner, id] : ["live", id],
+    queryFn: () => (theirs ? api.users.liveShow(owner!, id!) : api.live.get(id!)),
+    enabled: Boolean(id),
+  });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["live"] });
@@ -94,6 +102,7 @@ function Detail() {
         {formatDate(show.date)} · {SHOW_KIND_LABELS[show.kind]}
       </Muted>
       <H1>{showTitle(show)}</H1>
+      {theirs ? <Muted>@{owner}'s show</Muted> : null}
       {show.rating !== null && <Text style={{ color: colors.brand, fontSize: 28, fontWeight: "900" }}>{show.rating.toFixed(1)}</Text>}
       {show.venue && (
         <Card>
@@ -127,17 +136,25 @@ function Detail() {
           ))}
         </Card>
       ))}
-      <Button label="Edit" tone="ghost" onPress={() => setEditing(true)} />
+      {theirs ? null : <OwnerActions onEdit={() => setEditing(true)} onDelete={() => remove.mutate()} />}
+    </Screen>
+  );
+}
+
+function OwnerActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  return (
+    <>
+      <Button label="Edit" tone="ghost" onPress={onEdit} />
       <Button
         label="Delete show"
         tone="danger"
         onPress={() =>
           Alert.alert("Delete this show?", undefined, [
             { text: "Cancel" },
-            { text: "Delete", style: "destructive", onPress: () => remove.mutate() },
+            { text: "Delete", style: "destructive", onPress: onDelete },
           ])
         }
       />
-    </Screen>
+    </>
   );
 }

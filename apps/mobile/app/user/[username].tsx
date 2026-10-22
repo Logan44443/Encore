@@ -1,15 +1,14 @@
-import type { LiveShow, Profile } from "@encore/shared";
+import type { Profile } from "@encore/shared";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { api } from "@/api";
-import { EntryRow } from "@/components/EntryRow";
-import { PerformerPhoto } from "@/components/PerformerPhoto";
+import { EntryRow, LiveShowRow } from "@/components/EntryRow";
 import { AuthGate, Avatar, Button, Card, Empty, ErrorText, H1, Loading, Muted, Screen, SettingsGroup, SettingsRow, showMenu } from "@/components/ui";
-import { companionNames } from "@/companions";
-import { errorMessage, formatDate, showPhoto, showTitle } from "@/format";
+import { useAuth } from "@/auth";
+import { errorMessage } from "@/format";
 import { useFriendRequests, useFriends, useRefreshFriends } from "@/friends";
 import { colors } from "@/theme";
 
@@ -64,7 +63,7 @@ export function ProfileBody({ username }: { username: string }) {
           <Text style={{ color: colors.text, fontWeight: "800" }}>Top series</Text>
           {topShows.length ? topShows.map((e, i) => <EntryRow key={e.id} entry={e} rank={i + 1} />) : <Empty title="No series ranked yet" />}
           <Text style={{ color: colors.text, fontWeight: "800" }}>Recent live shows</Text>
-          {recentLiveShows.length ? recentLiveShows.map((s) => <ShowCard key={s.id} show={s} />) : <Empty title="No live shows yet" />}
+          {recentLiveShows.length ? recentLiveShows.map((s) => <LiveShowRow key={s.id} show={s} owner={relationship === "self" ? undefined : user.username} />) : <Empty title="No live shows yet" />}
         </>
       )}
       {relationship === "friend" && <Together username={user.username} />}
@@ -72,25 +71,9 @@ export function ProfileBody({ username }: { username: string }) {
   );
 }
 
-function ShowCard({ show }: { show: LiveShow }) {
-  const withWhom = companionNames(show.companions);
-  const face = showPhoto(show);
-  return (
-    <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-      <PerformerPhoto uri={face.uri} name={face.name} size={52} square />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ color: colors.text, fontWeight: "700" }}>{showTitle(show)}</Text>
-        <Muted>
-          {formatDate(show.date)}
-          {withWhom ? ` · with ${withWhom}` : ""}
-        </Muted>
-      </View>
-    </Card>
-  );
-}
-
 /** Everything you and a friend watched together, from either of your logs. */
 function Together({ username }: { username: string }) {
+  const { user: me } = useAuth();
   const { data } = useQuery({ queryKey: ["together", username], queryFn: () => api.users.together(username) });
   if (!data || (!data.entries.length && !data.shows.length)) return null;
   return (
@@ -100,7 +83,7 @@ function Together({ username }: { username: string }) {
         <EntryRow key={e.id} entry={e} />
       ))}
       {data.shows.map((s) => (
-        <ShowCard key={s.id} show={s} />
+        <LiveShowRow key={s.id} show={s} owner={s.userId === me?.id ? undefined : username} />
       ))}
     </>
   );

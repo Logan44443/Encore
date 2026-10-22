@@ -414,6 +414,8 @@ export interface LineupSlot {
 
 export interface LiveShow {
   id: string;
+  /** Who logged it. */
+  userId: string;
   kind: ShowKind;
   name: string | null;
   date: string;
