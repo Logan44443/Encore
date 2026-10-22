@@ -269,6 +269,12 @@ export const changePasswordSchema = z.object({
   newPassword: newPasswordSchema,
 });
 
+/** Picks the right title for a Letterboxd film Encore couldn't match, or skips it (no tmdbId). */
+export const letterboxdFixSchema = z.object({
+  key: z.string().min(1).max(300),
+  tmdbId: z.number().int().positive().optional(),
+});
+
 export type RegisterInput = z.input<typeof registerSchema>;
 export type LoginInput = z.input<typeof loginSchema>;
 export type EpisodeRef = z.infer<typeof episodeRefSchema>;
@@ -299,3 +305,4 @@ export type CreateLiveShowInput = z.input<typeof createLiveShowSchema>;
 export type UpdateLiveShowInput = z.input<typeof updateLiveShowSchema>;
 export type AddWatchlistInput = z.input<typeof addWatchlistSchema>;
 export type UpdateWatchlistInput = z.input<typeof updateWatchlistSchema>;
+export type LetterboxdFixInput = z.input<typeof letterboxdFixSchema>;

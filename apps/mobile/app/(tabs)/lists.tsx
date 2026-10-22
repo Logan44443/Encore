@@ -38,6 +38,7 @@ function GenreChips({ items, genreId, onChange }: { items: { genreId: number; ge
 }
 
 function MovieRankings() {
+  const router = useRouter();
   const [genreId, setGenreId] = useState<number | null>(null);
   const { data, error, isLoading } = useQuery({
     queryKey: ["entries", "movie"],
@@ -49,7 +50,16 @@ function MovieRankings() {
     <>
       <GenreChips items={all} genreId={genreId} onChange={setGenreId} />
       <ErrorText error={error} />
-      {isLoading ? <Loading /> : entries.length === 0 ? <Empty title="Nothing ranked yet" /> : entries.map((e, i) => <EntryRow key={e.id} entry={e} rank={i + 1} />)}
+      {isLoading ? (
+        <Loading />
+      ) : all.length === 0 ? (
+        <>
+          <Empty title="Nothing ranked yet" body="Rank a movie from its page, or bring over everything you've rated on Letterboxd." />
+          <Button label="Import from Letterboxd" tone="ghost" onPress={() => router.push("/import-letterboxd")} />
+        </>
+      ) : (
+        entries.map((e, i) => <EntryRow key={e.id} entry={e} rank={i + 1} />)
+      )}
     </>
   );
 }

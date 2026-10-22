@@ -24,6 +24,7 @@ import type {
   UpdateServicesInput,
   UpdateEntryInput,
   UpdateLiveShowInput,
+  LetterboxdFixInput,
 } from "./schemas";
 import type { PasswordResetConfirmInput, PasswordResetRequestInput } from "./password-reset";
 import type {
@@ -41,6 +42,7 @@ import type {
   FriendsOnTitle,
   GenreRecommendations,
   GenreSummary,
+  LetterboxdImport,
   LiveShow,
   Performer,
   Profile,
@@ -98,7 +100,11 @@ export function createApiClient({
   timeoutMs = 20_000,
   onUnauthorized,
 }: ApiClientOptions) {
-  async function request<T>(method: string, path: string, opts: { query?: Query; body?: unknown } = {}): Promise<T> {
+  async function request<T>(
+    method: string,
+    path: string,
+    opts: { query?: Query; body?: unknown; form?: FormData; timeoutMs?: number } = {},
+  ): Promise<T> {
     const url = new URL(path, baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
     for (const [k, v] of Object.entries(opts.query ?? {})) {
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
@@ -106,17 +112,18 @@ export function createApiClient({
     const headers: Record<string, string> = { Accept: "application/json" };
     const token = await getToken?.();
     if (token) headers.Authorization = `Bearer ${token}`;
+    // FormData sets its own multipart Content-Type (with the boundary).
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 
     // AbortController + setTimeout rather than AbortSignal.timeout, which React Native lacks.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? timeoutMs);
     let res: Response;
     try {
       res = await fetchImpl(url, {
         method,
         headers,
-        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        body: opts.form ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
         signal: controller.signal,
       });
     } catch (err) {
@@ -262,6 +269,19 @@ export function createApiClient({
       confirm: (id: string) => request<null>("POST", p(`/companions/${id}/confirm`)),
       /** Removes a tag: yours on your own entry, or a friend's tag of you. */
       remove: (id: string) => request<null>("DELETE", p(`/companions/${id}`)),
+    },
+
+    letterboxd: {
+      /** Your latest Letterboxd import (running or finished), or null if you've never imported. */
+      status: () => request<{ import: LetterboxdImport | null }>("GET", p("/import/letterboxd")),
+      /**
+       * Starts an import from Letterboxd's export: the ZIP, or any of its CSVs, under the
+       * field name "files". It runs in the background; poll `status` for progress.
+       */
+      start: (form: FormData) =>
+        request<{ import: LetterboxdImport }>("POST", p("/import/letterboxd"), { form, timeoutMs: 120_000 }),
+      /** Imports an unmatched film as the title you picked, or skips it when tmdbId is left out. */
+      fix: (body: LetterboxdFixInput) => request<{ import: LetterboxdImport }>("POST", p("/import/letterboxd/fix"), { body }),
     },
 
     account: {

@@ -1,4 +1,4 @@
-import type { EpisodeRef, Genre, SeasonSummary } from "@encore/shared";
+import type { EpisodeRef, Genre, LetterboxdImportCounts, LetterboxdUnmatched, SeasonSummary, TitleSummary } from "@encore/shared";
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
@@ -476,4 +476,23 @@ export const passwordResetCodes = pgTable("password_reset_codes", {
   attempts: integer("attempts").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Each user's latest Letterboxd import: progress while it runs, then what it did
+ * and the films still to sort out by hand. Importing again replaces the row.
+ */
+export const letterboxdImports = pgTable("letterboxd_imports", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").$type<"running" | "done" | "failed">().notNull(),
+  done: integer("done").notNull().default(0),
+  total: integer("total").notNull(),
+  error: text("error"),
+  counts: jsonb("counts").$type<LetterboxdImportCounts>().notNull(),
+  unmatched: jsonb("unmatched").$type<(LetterboxdUnmatched & { review: string | null; loggedAt: string | null })[]>().notNull().default([]),
+  notRated: jsonb("not_rated").$type<TitleSummary[]>().notNull().default([]),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
 });

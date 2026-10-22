@@ -14,18 +14,22 @@ import { authRoutes } from "./routes/auth";
 import { catalogRoutes } from "./routes/catalog";
 import { entryRoutes } from "./routes/entries";
 import { companionRoutes, friendRoutes, safetyRoutes } from "./routes/friends";
+import { importRoutes } from "./routes/import";
 import { liveRoutes } from "./routes/live";
 import { musicRoutes } from "./routes/music";
 import { passwordResetRoutes } from "./routes/password-reset";
 import { userRoutes } from "./routes/users";
 import { watchlistRoutes } from "./routes/watchlist";
 
+const smallBodies = bodyLimit({ maxSize: 1024 * 1024, onError: (c) => c.json({ error: "Request is too large" }, 413) });
+
 export const app = new Hono()
   .use(logger())
   .use(secureHeaders())
   .use(cors({ origin: env.corsOrigins.includes("*") ? "*" : env.corsOrigins, maxAge: 86400 }))
   // The largest real payload is a festival with full setlists (well under 1 MB).
-  .use(bodyLimit({ maxSize: 1024 * 1024, onError: (c) => c.json({ error: "Request is too large" }, 413) }))
+  // Import uploads set their own, larger limit.
+  .use(async (c, next) => (c.req.path.startsWith("/import/") ? next() : smallBodies(c, next)))
   // Searches fan out to TMDB / MusicBrainz (which allows ~1 request/second in total), so cap them per IP.
   .use("/catalog/search", rateLimit(60, 60_000, "catalog-search"))
   .use("/music/*", rateLimit(40, 60_000, "music"))
@@ -48,6 +52,7 @@ export const app = new Hono()
   .route("/live", liveRoutes)
   .route("/watchlist", watchlistRoutes)
   .route("/account", accountRoutes)
+  .route("/import", importRoutes)
   .route("/users", userRoutes)
   .route("/friends", friendRoutes)
   .route("/companions", companionRoutes)

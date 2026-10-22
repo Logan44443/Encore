@@ -116,3 +116,13 @@ export function tierForScore(score: number): Tier {
   if (score >= TIER_RANGES.fine.min) return "fine";
   return "disliked";
 }
+
+/**
+ * A Letterboxd star rating (½ to 5 stars) as an Encore reaction and score: the
+ * stars doubled onto the 0–10 scale, in the tier that score falls in. So 3½★ and
+ * up is "liked", 2–3★ is "fine", and 1½★ or less is "didn't like it".
+ */
+export function scoreFromStars(stars: number): { tier: Tier; score: number } {
+  const score = round1(Math.min(10, Math.max(0.5, stars) * 2));
+  return { tier: tierForScore(score), score };
+}
