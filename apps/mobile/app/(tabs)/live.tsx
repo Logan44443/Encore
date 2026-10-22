@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { api } from "@/api";
+import { PerformerPhoto } from "@/components/PerformerPhoto";
 import { AuthGate, Button, Card, Empty, ErrorText, H1, Loading, Muted, Screen } from "@/components/ui";
-import { formatPlace, showTitle, supportLine } from "@/format";
+import { formatPlace, showPhoto, showTitle, supportLine } from "@/format";
 import { colors } from "@/theme";
 
 function LiveList() {
@@ -46,15 +47,19 @@ function LiveList() {
             <Text style={{ color: colors.muted, fontWeight: "800" }}>{year}</Text>
             {list.map((s) => {
               const place = formatPlace(s.venue);
+              const face = showPhoto(s);
               return (
-                <Pressable key={s.id} onPress={() => router.push(`/show/${s.id}`)} style={{ backgroundColor: colors.panel, borderRadius: 14, borderWidth: 1, borderColor: colors.line, padding: 12, gap: 4 }}>
-                  <Muted>
-                    {s.date} · {SHOW_KIND_LABELS[s.kind]}
-                  </Muted>
-                  <Text style={{ color: colors.text, fontWeight: "800" }}>{showTitle(s)}</Text>
-                  {supportLine(s) ? <Muted>{supportLine(s)}</Muted> : null}
-                  {s.venue ? <Muted>{s.venue.name}{place ? ` · ${place}` : ""}</Muted> : null}
-                  {s.rating !== null && <Text style={{ color: colors.brand, fontWeight: "800" }}>{s.rating.toFixed(1)}</Text>}
+                <Pressable key={s.id} onPress={() => router.push(`/show/${s.id}`)} style={{ flexDirection: "row", gap: 12, backgroundColor: colors.panel, borderRadius: 14, borderWidth: 1, borderColor: colors.line, padding: 12 }}>
+                  <PerformerPhoto uri={face.uri} name={face.name} size={64} square />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Muted>
+                      {s.date} · {SHOW_KIND_LABELS[s.kind]}
+                    </Muted>
+                    <Text style={{ color: colors.text, fontWeight: "800" }}>{showTitle(s)}</Text>
+                    {supportLine(s) ? <Muted>{supportLine(s)}</Muted> : null}
+                    {s.venue ? <Muted>{s.venue.name}{place ? ` · ${place}` : ""}</Muted> : null}
+                    {s.rating !== null && <Text style={{ color: colors.brand, fontWeight: "800" }}>{s.rating.toFixed(1)}</Text>}
+                  </View>
                 </Pressable>
               );
             })}

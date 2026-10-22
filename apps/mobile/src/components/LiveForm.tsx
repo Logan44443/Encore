@@ -23,6 +23,7 @@ import {
 import { colors } from "../theme";
 import { CompanionPicker } from "./CompanionPicker";
 import { DateField } from "./DateField";
+import { PerformerPhoto } from "./PerformerPhoto";
 import { RatingSlider } from "./RatingSlider";
 import { Button, Chip, ErrorText, Field } from "./ui";
 
@@ -120,6 +121,7 @@ export function LiveForm({
         {errors.lineup && <Text style={styles.errorText}>{errors.lineup}</Text>}
         {v.lineup.map((s, i) => (
           <View key={`${s.performer.mbid ?? s.performer.name}-${i}`} style={styles.slot}>
+            <PerformerPhoto uri={s.performer.imageUrl} name={s.performer.name} size={40} />
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{s.performer.name}</Text>
               <Text style={styles.muted}>{ROLE_LABEL[s.role]}</Text>
@@ -222,6 +224,7 @@ export function PerformerSearch({ onSelect }: { onSelect: (p: Performer) => void
       {isFetching && <Text style={styles.muted}>Searching…</Text>}
       {data?.performers.map((p, i) => (
         <Pressable key={p.mbid ?? `${p.name}-${i}`} onPress={() => { onSelect(p); setQ(""); setDebounced(""); }} style={styles.slot}>
+          <PerformerPhoto uri={p.imageUrl} name={p.name} size={48} />
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{p.name}</Text>
             <Text style={styles.muted}>{[p.type, p.country, p.disambiguation].filter(Boolean).join(" · ")}</Text>

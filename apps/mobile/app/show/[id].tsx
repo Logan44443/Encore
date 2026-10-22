@@ -1,13 +1,15 @@
 import { SHOW_KIND_LABELS, type SongReaction } from "@encore/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { Alert, Linking, ScrollView, Text, View } from "react-native";
 import { api } from "@/api";
 import { LiveForm } from "@/components/LiveForm";
+import { PerformerPhoto } from "@/components/PerformerPhoto";
 import { AuthGate, Button, Card, ErrorText, H1, Loading, Muted, Screen } from "@/components/ui";
 import { companionNames } from "@/companions";
-import { formatDate, formatPlace, mapUrl, showTitle } from "@/format";
+import { formatDate, formatPlace, mapUrl, showPhoto, showTitle } from "@/format";
 import { formToPayload, showToForm, type LiveShowFormValues } from "@/live-form";
 import { colors } from "@/theme";
 
@@ -75,8 +77,19 @@ function Detail() {
   }
 
   const place = formatPlace(show.venue);
+  const hero = showPhoto(show);
   return (
     <Screen>
+      {hero.uri ? (
+        <Image
+          source={{ uri: hero.uri }}
+          style={{ width: "100%", aspectRatio: 4 / 3, borderRadius: 16, backgroundColor: colors.panel2 }}
+          contentFit="cover"
+          contentPosition="top"
+          transition={150}
+          accessibilityLabel={hero.name}
+        />
+      ) : null}
       <Muted>
         {formatDate(show.date)} · {SHOW_KIND_LABELS[show.kind]}
       </Muted>
@@ -96,8 +109,13 @@ function Detail() {
       {show.notes ? <Card><Muted>Notes</Muted><Text style={{ color: colors.text }}>{show.notes}</Text></Card> : null}
       {show.lineup.map((slot, i) => (
         <Card key={`${slot.performer.mbid ?? slot.performer.name}-${i}`}>
-          <Text style={{ color: colors.text, fontWeight: "800" }}>{slot.performer.name}</Text>
-          <Muted>{slot.role}</Muted>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <PerformerPhoto uri={slot.performer.imageUrl} name={slot.performer.name} size={48} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontWeight: "800" }}>{slot.performer.name}</Text>
+              <Muted>{slot.role}</Muted>
+            </View>
+          </View>
           {slot.songs.map((song) => (
             <View key={`${song.position}-${song.title}`} style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
               <Text style={{ color: colors.text, flex: 1 }}>
