@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { PerformerSearch } from "@/components/LiveForm";
 import { DateField } from "@/components/DateField";
+import { PerformerPhoto } from "@/components/PerformerPhoto";
 import { Poster } from "@/components/Poster";
 import { AuthGate, Button, Chip, Empty, ErrorText, Field, H1, Loading, Muted, Screen } from "@/components/ui";
 import { daysUntil, formatDate } from "@/format";
@@ -78,6 +79,7 @@ function WatchRow({ item }: { item: WatchlistItem }) {
   return (
     <View style={{ flexDirection: "row", gap: 10, alignItems: "center", backgroundColor: colors.panel, borderRadius: 14, borderWidth: 1, borderColor: colors.line, padding: 10 }}>
       {item.title ? <Poster uri={item.title.posterUrl} name={title} width={48} /> : null}
+      {item.performer ? <PerformerPhoto uri={item.performer.imageUrl} name={item.performer.name} size={48} /> : null}
       <Pressable onPress={open} style={{ flex: 1 }}>
         <Text style={{ color: colors.text, fontWeight: "700" }}>{title}</Text>
         <Muted>

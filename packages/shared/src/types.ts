@@ -87,7 +87,7 @@ export interface PendingTag {
   /** Set for movies and series. */
   title: TitleSummary | null;
   /** Set for live shows. */
-  show: { id: string; name: string; date: string; venue: string | null } | null;
+  show: { id: string; name: string; date: string; venue: string | null; imageUrl: string | null } | null;
   /** When they watched it (the entry's watched date or the show date). */
   date: string | null;
   createdAt: string;
