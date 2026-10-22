@@ -115,6 +115,13 @@ Same algorithm, one list per user × show × tier. The server checks the season 
 - Server: `apps/api/src/services/seasons.ts`
 - Mobile UI: `apps/mobile/src/components/SeasonRank.tsx`, with three modes: rank every watched season, rank one season, or re-rank a season.
 
+### Episode ranking and TV roll-ups
+
+- **Episodes** are ranked with the same algorithm, one list per user × show × tier, across all of the show's seasons. Table `episode_entries` (migration `0014`) keeps a copy of the episode's name and still. Server: `apps/api/src/services/episodes.ts`.
+- **Roll-ups** (`apps/api/src/services/tv-rankings.ts`, `GET /entries/tv`): a season's score is the average of its ranked episodes, and a show's is the average of its season scores (specials left out). A season or show you ranked directly keeps its own score; the roll-up only fills in ones you haven't ranked. That rule is `ROLLUP_RULE` in `packages/shared/src/ranking.ts` (`"direct"`, or `"parts"` / `"blend"`).
+- Roll-up-only shows aren't in community charts, the feed or friends' rankings, which still read `title_entries`.
+- **Mobile:** Rankings → TV has Shows / Seasons / Episodes. Title page → Seasons opens `app/season/[id]/[season].tsx`, which ranks the season or its episodes (one at a time, or "Rank several"). Component: `src/components/EpisodeRank.tsx`.
+
 ### How the recommended feed works
 
 `apps/api/src/services/feed.ts`, served at `GET /catalog/feed` (signed-in only).
@@ -194,6 +201,9 @@ Earlier migrations (`0000`–`0003`) are the original web app: titles, entries, 
 | `GET /entries/seasons?tmdbId=` | Your ranked seasons of a show |
 | `GET /entries/seasons/candidates?tmdbId&tier&excludeEntryId` | Seasons to compare against |
 | `POST /entries/seasons` · `PUT /entries/seasons/:id/rank` · `DELETE /entries/seasons/:id` | Rank, re-rank, remove a season |
+| `GET /entries/episodes?tmdbId=` · `GET /entries/episodes/candidates?tmdbId&tier&excludeEntryId` | Your ranked episodes of a show; episodes to compare against |
+| `POST /entries/episodes` · `PUT /entries/episodes/:id/rank` · `DELETE /entries/episodes/:id` | Rank, re-rank, remove an episode |
+| `GET /entries/tv?tmdbId=` | Shows, seasons and episodes with rolled-up scores (one show, or all) |
 | `GET /catalog/feed` | Personal recommended feed (auth) |
 | `POST /catalog/feed/dismiss` · `DELETE /catalog/feed/dismiss?mediaType&tmdbId` | Not interested / undo (auth) |
 | `GET /catalog/recommendations` | Now also returns `trending` and `forYou` |
