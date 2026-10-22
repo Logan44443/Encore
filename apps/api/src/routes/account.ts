@@ -121,7 +121,7 @@ export const accountRoutes = new Hono<AuthVars>()
   })
 
   /**
-   * Permanently deletes the signed-in account. Entries, season entries, live shows
+   * Permanently deletes the signed-in account. Entries, season and episode entries, live shows
    * (with their lineups and setlists), watchlist items, dismissed titles, friendships,
    * friend requests and blocks all go with it via ON DELETE CASCADE. Reports keep
    * the reported username but lose the link to the account. Shared catalog rows (titles, performers, venues)

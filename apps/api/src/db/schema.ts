@@ -157,6 +157,36 @@ export const seasonEntries = pgTable(
 );
 
 /**
+ * Episodes of one show, ranked against each other across all its seasons: one
+ * list per (user, show, tier), like seasons. The episode's name and still are
+ * copied in so cross-show lists never need the catalog.
+ */
+export const episodeEntries = pgTable(
+  "episode_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    titleId: integer("title_id")
+      .notNull()
+      .references(() => titles.id),
+    seasonNumber: integer("season_number").notNull(),
+    episodeNumber: integer("episode_number").notNull(),
+    name: text("name").notNull(),
+    stillUrl: text("still_url"),
+    tier: tierEnum("tier").notNull(),
+    position: doublePrecision("position").notNull(),
+    score: real("score").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("episode_entries_user_episode_idx").on(t.userId, t.titleId, t.seasonNumber, t.episodeNumber),
+    index("episode_entries_rank_idx").on(t.userId, t.titleId, t.tier, t.position),
+  ],
+);
+
+/**
  * "Not interested" picks from the recommended feed. Keyed by TMDB id so dismissing
  * never has to fetch the title; genre ids are kept to soften similar suggestions.
  */

@@ -38,7 +38,7 @@ function inList(key: ListKey, excludeId?: string): SQL {
   )!;
 }
 
-function seasonMeta(seasons: SeasonSummary[], seasonNumber: number) {
+export function seasonMeta(seasons: SeasonSummary[], seasonNumber: number) {
   const match = seasons.find((s) => s.seasonNumber === seasonNumber);
   return {
     name: match?.name ?? (seasonNumber === 0 ? "Specials" : `Season ${seasonNumber}`),
@@ -163,9 +163,16 @@ async function withRank(tx: Executor, userId: string, titleId: number, entry: Se
   return { entry, rank: ids.findIndex((r) => r.id === entry.id) + 1, outOf: ids.length };
 }
 
-export async function listSeasonEntries(userId: string, tmdbId: number): Promise<SeasonEntry[]> {
+/** Your directly ranked seasons, best first: of one show, or of every show when tmdbId is left out. */
+export async function listSeasonEntries(userId: string, tmdbId?: number): Promise<SeasonEntry[]> {
   const rows = await selectSeasons(db)
-    .where(and(eq(seasonEntries.userId, userId), eq(titles.tmdbId, tmdbId), eq(titles.mediaType, "tv")))
+    .where(
+      and(
+        eq(seasonEntries.userId, userId),
+        eq(titles.mediaType, "tv"),
+        tmdbId !== undefined ? eq(titles.tmdbId, tmdbId) : undefined,
+      ),
+    )
     .orderBy(desc(seasonEntries.score), tierOrder, asc(seasonEntries.position));
   return rows.map(toSeasonEntry);
 }

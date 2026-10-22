@@ -4,6 +4,7 @@ import type {
   UpdateWatchlistInput,
   CreateEntryInput,
   CreateLiveShowInput,
+  CreateEpisodeEntryInput,
   CreateSeasonEntryInput,
   ChangeEmailInput,
   ChangePasswordInput,
@@ -12,6 +13,7 @@ import type {
   LoginInput,
   RegisterInput,
   RerankEntryInput,
+  RerankEpisodeEntryInput,
   RerankSeasonEntryInput,
   UpdateCountryInput,
   UpdateProfileInput,
@@ -46,12 +48,16 @@ import type {
   PublicUser,
   RankCandidate,
   Region,
+  EpisodeEntry,
+  EpisodeEntryResult,
+  EpisodeRankCandidate,
   SeasonEntry,
   SeasonEntryResult,
   SeasonRankCandidate,
   SearchResult,
   SetlistSummary,
   Title,
+  TvRankings,
   User,
   WatchlistItem,
   WatchProvider,
@@ -206,6 +212,20 @@ export function createApiClient({
         request<SeasonEntryResult>("PUT", p(`/entries/seasons/${id}/rank`), { body }),
       remove: (id: string) => request<null>("DELETE", p(`/entries/seasons/${id}`)),
     },
+
+    episodes: {
+      list: (tmdbId: number) =>
+        request<{ episodes: EpisodeEntry[] }>("GET", p("/entries/episodes"), { query: { tmdbId } }),
+      candidates: (query: { tmdbId: number; tier: Tier; excludeEntryId?: string }) =>
+        request<{ candidates: EpisodeRankCandidate[] }>("GET", p("/entries/episodes/candidates"), { query }),
+      create: (body: CreateEpisodeEntryInput) => request<EpisodeEntryResult>("POST", p("/entries/episodes"), { body }),
+      rerank: (id: string, body: RerankEpisodeEntryInput) =>
+        request<EpisodeEntryResult>("PUT", p(`/entries/episodes/${id}/rank`), { body }),
+      remove: (id: string) => request<null>("DELETE", p(`/entries/episodes/${id}`)),
+    },
+
+    /** Shows, seasons and episodes with rolled-up scores; pass tmdbId for one show. */
+    tv: (tmdbId?: number) => request<TvRankings>("GET", p("/entries/tv"), { query: { tmdbId } }),
 
     music: {
       searchPerformers: (q: string) =>

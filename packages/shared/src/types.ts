@@ -291,6 +291,81 @@ export interface SeasonEntryResult {
   outOf: number;
 }
 
+/** One episode of a show, ranked against that show's other episodes (across all its seasons). */
+export interface EpisodeEntry {
+  id: string;
+  tmdbId: number;
+  showName: string;
+  posterUrl: string | null;
+  seasonNumber: number;
+  episodeNumber: number;
+  name: string;
+  stillUrl: string | null;
+  tier: Tier;
+  score: number;
+  createdAt: string;
+}
+
+/** One slot in a show's (tier) episode list, ordered best → worst. */
+export interface EpisodeRankCandidate {
+  entryId: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  name: string;
+  score: number;
+}
+
+export interface EpisodeEntryResult {
+  entry: EpisodeEntry;
+  rank: number;
+  outOf: number;
+}
+
+/**
+ * A season's score: your own ranking of it, or the average of its ranked
+ * episodes when you haven't ranked the season itself (see ROLLUP_RULE).
+ */
+export interface SeasonScore {
+  tmdbId: number;
+  showName: string;
+  posterUrl: string | null;
+  seasonNumber: number;
+  name: string;
+  episodeCount: number;
+  score: number;
+  /** "ranked" = you ranked the season itself; "episodes" = filled in from its episodes. */
+  source: "ranked" | "episodes";
+  /** Your direct ranking of the season, if any. */
+  entry: SeasonEntry | null;
+  episodeAverage: number | null;
+  rankedEpisodes: number;
+}
+
+/**
+ * A show's score: your own ranking of it, or the average of its season scores
+ * when you've only ranked seasons or episodes (see ROLLUP_RULE).
+ */
+export interface ShowScore {
+  title: TitleSummary;
+  genreId: number;
+  genreName: string;
+  score: number;
+  /** "ranked" = you ranked the show itself; "seasons" = filled in from its seasons. */
+  source: "ranked" | "seasons";
+  /** Your direct ranking of the show, if any. */
+  entry: Entry | null;
+  seasonAverage: number | null;
+  /** Seasons (not counting specials) with a score, direct or from episodes. */
+  rankedSeasons: number;
+}
+
+/** Your TV rankings at every level, each list best → worst. */
+export interface TvRankings {
+  shows: ShowScore[];
+  seasons: SeasonScore[];
+  episodes: EpisodeEntry[];
+}
+
 export interface Performer {
   /** MusicBrainz id; null for performers added by name only. */
   mbid: string | null;

@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   answerComparison,
+  averageScore,
+  combineScores,
   insertionIndex,
   maxComparisons,
   nextComparisonIndex,
   scoreList,
   startComparison,
+  tierForScore,
 } from "./ranking";
 
 function rank(list: number[], value: number) {
@@ -58,4 +61,16 @@ test("set scores stay put and the rest fill in around them", () => {
 test("a set score out of order is clamped under the one above", () => {
   assert.deepEqual(scoreList("liked", [8, 9]), [8, 8]);
   assert.deepEqual(scoreList("fine", [9]), [6.7]);
+});
+
+test("roll-ups: averages, direct ranking wins, tiers from scores", () => {
+  assert.equal(averageScore([]), null);
+  assert.equal(averageScore([8, 9, 7.5]), 8.2);
+  assert.equal(combineScores(null, null), null);
+  assert.equal(combineScores(null, 7.6), 7.6);
+  assert.equal(combineScores(9.1, null), 9.1);
+  assert.equal(combineScores(9.1, 7.6), 9.1);
+  assert.equal(tierForScore(6.8), "liked");
+  assert.equal(tierForScore(6.7), "fine");
+  assert.equal(tierForScore(3.4), "disliked");
 });
