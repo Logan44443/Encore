@@ -30,6 +30,13 @@ export function showTitle(show: LiveShow) {
   return (headliners.length ? headliners : show.lineup.slice(0, 1).map((s) => s.performer.name)).join(" & ") || "Live show";
 }
 
+/** The photo that stands for a show: the headliner's, else the first act on the bill who has one. */
+export function showPhoto(show: LiveShow): { uri: string | null; name: string } {
+  const lead = show.lineup.find((s) => s.role === "headliner") ?? show.lineup[0];
+  const pictured = lead?.performer.imageUrl ? lead : show.lineup.find((s) => s.performer.imageUrl);
+  return { uri: pictured?.performer.imageUrl ?? null, name: pictured?.performer.name ?? showTitle(show) };
+}
+
 export function supportLine(show: LiveShow) {
   const others = show.name ? show.lineup : show.lineup.filter((s) => s.role !== "headliner");
   if (others.length === 0) return null;

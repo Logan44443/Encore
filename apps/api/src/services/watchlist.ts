@@ -4,7 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import type { z } from "zod";
 import { db } from "../db/client";
 import { performers, titles, watchlistItems } from "../db/schema";
-import { performerImage } from "../providers/deezer";
+import { performerPhoto } from "../providers/performer-photo";
 import { upsertPerformer } from "./live";
 import { getTitle, toTitleSummary } from "./titles";
 
@@ -70,7 +70,7 @@ export async function addToWatchlist(userId: string, input: AddInput): Promise<W
   if (input.kind === "performer") {
     const performer = input.performer.imageUrl
       ? input.performer
-      : { ...input.performer, imageUrl: await performerImage(input.performer.name) };
+      : { ...input.performer, imageUrl: await performerPhoto(input.performer) };
     const performerId = await upsertPerformer(db, performer);
     await db
       .insert(watchlistItems)

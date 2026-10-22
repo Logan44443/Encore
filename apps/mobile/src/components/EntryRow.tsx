@@ -2,7 +2,7 @@ import { SHOW_KIND_LABELS, type Entry, type LiveShow } from "@encore/shared";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { companionNames } from "../companions";
-import { showTitle } from "../format";
+import { showPhoto, showTitle } from "../format";
 import { colors, tierColor } from "../theme";
 import { Poster } from "./Poster";
 import { ScoreBadge } from "./ui";
@@ -32,10 +32,9 @@ export function EntryRow({ entry, rank }: { entry: Entry; rank?: number }) {
 export function LiveShowRow({ show }: { show: LiveShow }) {
   const router = useRouter();
   const name = showTitle(show);
-  const headliner = show.lineup.find((s) => s.role === "headliner") ?? show.lineup[0];
   return (
     <Pressable onPress={() => router.push(`/show/${show.id}`)} style={styles.row}>
-      <Poster uri={headliner?.performer.imageUrl ?? null} name={name} width={44} />
+      <Poster uri={showPhoto(show).uri} name={name} width={44} />
       <View style={{ flex: 1 }}>
         <Text style={styles.name} numberOfLines={1}>
           {name}

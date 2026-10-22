@@ -3,7 +3,8 @@ import { HTTPException } from "hono/http-exception";
 import { env } from "../env";
 import { DAY } from "../lib/cache";
 import { swr } from "../lib/swr-cache";
-import { performerImage, searchDeezerArtists } from "./deezer";
+import { searchDeezerArtists } from "./deezer";
+import { performerPhoto } from "./performer-photo";
 
 const BASE = "https://musicbrainz.org/ws/2";
 
@@ -63,7 +64,7 @@ function searchMusicBrainz(query: string): Promise<Performer[]> {
       return ((await res.json()) as { artists: MbArtist[] }).artists;
     });
     // Photos only for the top hits — they're the ones people pick.
-    const images = await Promise.all(artists.map((a, i) => (i < 5 ? performerImage(a.name) : null)));
+    const images = await Promise.all(artists.map((a, i) => (i < 5 ? performerPhoto({ name: a.name, mbid: a.id }) : null)));
     return artists.map((a, i) => ({
       mbid: a.id,
       name: a.name,
