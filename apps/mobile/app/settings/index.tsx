@@ -96,6 +96,10 @@ function Settings() {
         />
       </SettingsGroup>
 
+      <SettingsGroup title="Your data">
+        <SettingsRow label="Import from Letterboxd" onPress={() => router.push("/import-letterboxd")} last />
+      </SettingsGroup>
+
       <SettingsGroup>
         <SettingsRow label="Sign out" tone="danger" onPress={confirmSignOut} />
         <SettingsRow label="Delete account" tone="danger" onPress={() => router.push("/delete-account")} last />

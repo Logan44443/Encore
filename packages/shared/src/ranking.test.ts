@@ -7,10 +7,12 @@ import {
   insertionIndex,
   maxComparisons,
   nextComparisonIndex,
+  scoreFromStars,
   scoreList,
   startComparison,
   tierForScore,
 } from "./ranking";
+import { TIER_RANGES } from "./constants";
 
 function rank(list: number[], value: number) {
   let state = startComparison(list.length);
@@ -73,4 +75,17 @@ test("roll-ups: averages, direct ranking wins, tiers from scores", () => {
   assert.equal(tierForScore(6.8), "liked");
   assert.equal(tierForScore(6.7), "fine");
   assert.equal(tierForScore(3.4), "disliked");
+});
+
+test("scoreFromStars doubles Letterboxd stars and keeps every score inside its tier", () => {
+  assert.deepEqual(scoreFromStars(5), { tier: "liked", score: 10 });
+  assert.deepEqual(scoreFromStars(3.5), { tier: "liked", score: 7 });
+  assert.deepEqual(scoreFromStars(3), { tier: "fine", score: 6 });
+  assert.deepEqual(scoreFromStars(2), { tier: "fine", score: 4 });
+  assert.deepEqual(scoreFromStars(1.5), { tier: "disliked", score: 3 });
+  assert.deepEqual(scoreFromStars(0.5), { tier: "disliked", score: 1 });
+  for (let stars = 0.5; stars <= 5; stars += 0.5) {
+    const { tier, score } = scoreFromStars(stars);
+    assert.ok(score >= TIER_RANGES[tier].min && score <= TIER_RANGES[tier].max, `${stars}★ → ${score} outside ${tier}`);
+  }
 });

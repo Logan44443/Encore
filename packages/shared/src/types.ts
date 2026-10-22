@@ -476,3 +476,41 @@ export interface ProviderStatus {
   tmdb: "live" | "demo";
   setlistFm: boolean;
 }
+
+/** A film from a Letterboxd export that Encore couldn't match to a catalog title by itself. */
+export interface LetterboxdUnmatched {
+  /** Stable id for this film within the import, for fixing or skipping it. */
+  key: string;
+  name: string;
+  year: number | null;
+  /** Letterboxd stars (½ to 5), or null when it wasn't rated. */
+  rating: number | null;
+  watchedAt: string | null;
+  /** "watched" films get ranked (when rated); "watchlist" ones go on the watchlist. */
+  kind: "watched" | "watchlist";
+}
+
+export interface LetterboxdImportCounts {
+  /** Rated films added to your movie rankings. */
+  ranked: number;
+  /** Films you'd already ranked in Encore; those rankings were left as they are. */
+  alreadyRanked: number;
+  watchlisted: number;
+  /** Watched but never rated on Letterboxd, so there was no score to rank them with. */
+  notRated: number;
+  unmatched: number;
+}
+
+export interface LetterboxdImport {
+  status: "running" | "done" | "failed";
+  /** Films processed so far, out of `total`. */
+  done: number;
+  total: number;
+  error: string | null;
+  counts: LetterboxdImportCounts;
+  unmatched: LetterboxdUnmatched[];
+  /** Watched-but-unrated films that were matched, to rank by hand. */
+  notRated: TitleSummary[];
+  startedAt: string;
+  finishedAt: string | null;
+}

@@ -267,6 +267,53 @@ export async function createEntry(userId: string, input: CreateEntryInput): Prom
   return { ...result, entry };
 }
 
+/**
+ * Adds a title you rated somewhere else (a Letterboxd import) straight into its
+ * ranking with that score, under every entry already scoring at least as much.
+ * Unlike the slider, this works however big the list is. `createdAt` backdates the
+ * entry so a big import doesn't flood friends' activity or the trending charts.
+ * Returns false (and changes nothing) if you've already ranked the title.
+ */
+export async function importRatedEntry(
+  userId: string,
+  title: { id: number; mediaType: MediaType; genres: { id: number }[] },
+  input: { tier: Tier; score: number; watchedAt: string | null; review: string | null; createdAt: Date | null },
+): Promise<boolean> {
+  const genreId = title.genres.find((g) => genresFor(title.mediaType).some((k) => k.id === g.id))?.id ?? genresFor(title.mediaType)[0].id;
+  const key: ListKey = { userId, mediaType: title.mediaType, genreId, tier: input.tier };
+  return db.transaction(async (tx) => {
+    const [dupe] = await tx
+      .select({ id: titleEntries.id })
+      .from(titleEntries)
+      .where(and(eq(titleEntries.userId, userId), eq(titleEntries.titleId, title.id)));
+    if (dupe) return false;
+
+    const others = await tx
+      .select({ id: titleEntries.id, score: titleEntries.score })
+      .from(titleEntries)
+      .where(inList(key))
+      .orderBy(asc(titleEntries.position));
+    const aboveEntryId = others.filter((o) => o.score >= input.score).at(-1)?.id ?? null;
+    const position = await positionFor(tx, key, aboveEntryId);
+    await tx.insert(titleEntries).values({
+      userId,
+      titleId: title.id,
+      mediaType: title.mediaType,
+      genreId,
+      tier: input.tier,
+      position,
+      score: 0,
+      userScore: input.score,
+      review: input.review,
+      watchedAt: input.watchedAt,
+      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+    });
+    await recomputeScores(tx, key);
+    await clearWatchedTitle(tx, userId, title.id);
+    return true;
+  });
+}
+
 export async function rerankEntry(userId: string, id: string, input: RerankEntryInput): Promise<EntryResult> {
   if (input.aboveEntryId === id) throw new HTTPException(400, { message: "An entry can't sit above itself" });
   return db.transaction(async (tx) => {
