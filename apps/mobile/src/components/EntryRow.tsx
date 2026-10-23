@@ -2,7 +2,7 @@ import { SHOW_KIND_LABELS, type Entry, type LiveShow } from "@encore/shared";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { companionNames } from "../companions";
-import { showPhoto, showTitle } from "../format";
+import { showPhoto, showTitle, titleByline } from "../format";
 import { colors, tierColor } from "../theme";
 import { Poster } from "./Poster";
 import { ScoreBadge } from "./ui";
@@ -18,8 +18,7 @@ export function EntryRow({ entry, rank }: { entry: Entry; rank?: number }) {
           {entry.title.name}
         </Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {entry.genreName}
-          {entry.title.year ? ` · ${entry.title.year}` : ""}
+          {[entry.genreName, titleByline(entry.title)].filter(Boolean).join(" · ")}
           {companionNames(entry.companions) ? ` · with ${companionNames(entry.companions)}` : ""}
         </Text>
       </View>

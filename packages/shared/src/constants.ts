@@ -1,4 +1,4 @@
-export const MEDIA_TYPES = ["movie", "tv"] as const;
+export const MEDIA_TYPES = ["movie", "tv", "book"] as const;
 export type MediaType = (typeof MEDIA_TYPES)[number];
 
 export const TIERS = ["liked", "fine", "disliked"] as const;
@@ -42,12 +42,13 @@ export const SHOW_KIND_LABELS: Record<ShowKind, string> = {
   other: "Other live show",
 };
 
-export const WATCHLIST_KINDS = ["movie", "tv", "performer", "festival"] as const;
+export const WATCHLIST_KINDS = ["movie", "tv", "book", "performer", "festival"] as const;
 export type WatchlistKind = (typeof WATCHLIST_KINDS)[number];
 
 export const WATCHLIST_KIND_LABELS: Record<WatchlistKind, string> = {
   movie: "Movies",
   tv: "TV shows",
+  book: "Books",
   performer: "Artists",
   festival: "Festivals",
 };
@@ -102,9 +103,42 @@ export const TV_GENRES: Genre[] = [
   { id: 37, name: "Western" },
 ];
 
+/**
+ * Book genres are Encore's own (books have no TMDB ids). The API maps Open
+ * Library subjects onto them; the ids just need to stay stable.
+ */
+export const BOOK_GENRES: Genre[] = [
+  { id: 1001, name: "Fiction" },
+  { id: 1002, name: "Fantasy" },
+  { id: 1003, name: "Science Fiction" },
+  { id: 1004, name: "Mystery & Thriller" },
+  { id: 1005, name: "Romance" },
+  { id: 1006, name: "Horror" },
+  { id: 1007, name: "Historical Fiction" },
+  { id: 1008, name: "Young Adult" },
+  { id: 1009, name: "Children's" },
+  { id: 1010, name: "Classics" },
+  { id: 1011, name: "Comics & Graphic Novels" },
+  { id: 1012, name: "Poetry" },
+  { id: 1013, name: "Biography & Memoir" },
+  { id: 1014, name: "History" },
+  { id: 1015, name: "Science & Nature" },
+  { id: 1016, name: "Self-Help" },
+  { id: 1017, name: "Business" },
+  { id: 1018, name: "Philosophy & Religion" },
+  { id: 1019, name: "Nonfiction" },
+];
+
 export function genresFor(mediaType: MediaType): Genre[] {
-  return mediaType === "movie" ? MOVIE_GENRES : TV_GENRES;
+  return mediaType === "movie" ? MOVIE_GENRES : mediaType === "tv" ? TV_GENRES : BOOK_GENRES;
 }
+
+/** Singular name for a media type, as shown on title pages and cards. */
+export const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
+  movie: "Movie",
+  tv: "TV series",
+  book: "Book",
+};
 
 export function genreName(mediaType: MediaType, id: number): string {
   return genresFor(mediaType).find((g) => g.id === id)?.name ?? "Other";

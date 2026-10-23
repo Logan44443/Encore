@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { api } from "../api";
+import { doneVerb } from "../format";
 import { colors, tierColor } from "../theme";
 import { Avatar, Muted, ScoreBadge, SectionTitle, showMenu } from "./ui";
 
@@ -22,18 +23,18 @@ export function FriendsOnTitle({ mediaType, tmdbId }: { mediaType: MediaType; tm
         action={data.average !== null ? <Text style={{ color: colors.brand, fontWeight: "800" }}>avg {data.average.toFixed(1)}</Text> : undefined}
       />
       {data.rankings.map((r) => (
-        <FriendRankingRow key={r.entryId} ranking={r} />
+        <FriendRankingRow key={r.entryId} ranking={r} mediaType={mediaType} />
       ))}
       {want.length ? (
         <Muted>
-          {want.length === 1 ? `${want[0]} wants` : `${want.slice(0, -1).join(", ")} and ${want.at(-1)} want`} to watch this.
+          {want.length === 1 ? `${want[0]} wants` : `${want.slice(0, -1).join(", ")} and ${want.at(-1)} want`} to {mediaType === "book" ? "read" : "watch"} this.
         </Muted>
       ) : null}
     </View>
   );
 }
 
-function FriendRankingRow({ ranking: r }: { ranking: FriendRanking }) {
+function FriendRankingRow({ ranking: r, mediaType }: { ranking: FriendRanking; mediaType: MediaType }) {
   const router = useRouter();
   const report = () =>
     router.push({
@@ -47,7 +48,7 @@ function FriendRankingRow({ ranking: r }: { ranking: FriendRanking }) {
         <Text style={styles.name}>{r.user.displayName}</Text>
         <Text style={styles.meta}>
           {r.genreName}
-          {r.watchedAt ? ` · watched ${r.watchedAt}` : ""}
+          {r.watchedAt ? ` · ${doneVerb(mediaType).toLowerCase()} ${r.watchedAt}` : ""}
         </Text>
         {r.review ? <Text style={styles.review}>“{r.review}”</Text> : null}
       </View>

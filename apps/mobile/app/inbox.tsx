@@ -102,7 +102,7 @@ function TagCard({ tag, busy, act }: { tag: PendingTag; busy: boolean; act: (act
         {tag.title ? <Poster uri={tag.title.posterUrl} name={tag.title.name} width={44} /> : null}
         {tag.show ? <PerformerPhoto uri={tag.show.imageUrl} name={tag.show.name} size={44} square /> : null}
         <Text style={{ color: colors.text, flex: 1, lineHeight: 20 }}>
-          <Text style={{ fontWeight: "800" }}>{tag.by.displayName}</Text> says you watched{" "}
+          <Text style={{ fontWeight: "800" }}>{tag.by.displayName}</Text> says you {tag.title?.mediaType === "book" ? "read" : "watched"}{" "}
           <Text style={{ fontWeight: "800" }}>{what}</Text> together{when}.
           {tag.show?.venue ? <Text style={{ color: colors.muted }}> {tag.show.venue}</Text> : null}
         </Text>

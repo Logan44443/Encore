@@ -42,7 +42,7 @@ export const app = new Hono()
     }),
   )
   .get("/health", (c) =>
-    c.json({ ok: true as const, providers: { tmdb: catalog.kind, setlistFm: setlistFmEnabled } }),
+    c.json({ ok: true as const, providers: { tmdb: catalog.kind, googleBooks: Boolean(env.googleBooksApiKey), setlistFm: setlistFmEnabled } }),
   )
   .route("/auth", authRoutes)
   .route("/auth/password-reset", passwordResetRoutes)

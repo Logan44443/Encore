@@ -53,7 +53,7 @@ async function findViewableUser(viewerId: string, username: string) {
   return found;
 }
 
-const EMPTY_STATS = { movies: 0, series: 0, liveShows: 0, performers: 0, cities: 0 };
+const EMPTY_STATS = { movies: 0, series: 0, books: 0, liveShows: 0, performers: 0, cities: 0 };
 
 export const userRoutes = new Hono<AuthVars>()
   .use(requireAuth)
@@ -120,20 +120,22 @@ export const userRoutes = new Hono<AuthVars>()
       canRequest: relationship === "none" && user.allowFriendRequests,
     };
     if (!canView) {
-      const profile: Profile = { ...base, stats: EMPTY_STATS, topMovies: [], topShows: [], recentLiveShows: [] };
+      const profile: Profile = { ...base, stats: EMPTY_STATS, topMovies: [], topShows: [], topBooks: [], recentLiveShows: [] };
       return c.json(profile);
     }
-    const [[entryStats], live, topMovies, topShows, recentLiveShows] = await Promise.all([
+    const [[entryStats], live, topMovies, topShows, topBooks, recentLiveShows] = await Promise.all([
       db
         .select({
           movies: sql<number>`count(*) filter (where ${titleEntries.mediaType} = 'movie')`.mapWith(Number),
           series: sql<number>`count(*) filter (where ${titleEntries.mediaType} = 'tv')`.mapWith(Number),
+          books: sql<number>`count(*) filter (where ${titleEntries.mediaType} = 'book')`.mapWith(Number),
         })
         .from(titleEntries)
         .where(eq(titleEntries.userId, user.id)),
       liveStats(user.id),
       listEntries(user.id, { mediaType: "movie", limit: 10 }),
       listEntries(user.id, { mediaType: "tv", limit: 10 }),
+      listEntries(user.id, { mediaType: "book", limit: 10 }),
       listLiveShows(user.id, 6),
     ]);
     const profile: Profile = {
@@ -141,6 +143,7 @@ export const userRoutes = new Hono<AuthVars>()
       stats: { ...entryStats, ...live },
       topMovies: await withEntryCompanions(reviews ? topMovies : topMovies.map(withoutReview), viewerId, user.id),
       topShows: await withEntryCompanions(reviews ? topShows : topShows.map(withoutReview), viewerId, user.id),
+      topBooks: await withEntryCompanions(reviews ? topBooks : topBooks.map(withoutReview), viewerId, user.id),
       recentLiveShows: await withShowCompanions(reviews ? recentLiveShows : recentLiveShows.map(withoutNotes), viewerId, user.id),
     };
     return c.json(profile);

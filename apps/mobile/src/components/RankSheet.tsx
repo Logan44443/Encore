@@ -26,7 +26,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { draftsToInput, type CompanionDraft } from "../companions";
-import { formatEpisode, localToday } from "../format";
+import { doneVerb, formatEpisode, localToday } from "../format";
 import { colors, tierColor } from "../theme";
 import { CompanionPicker } from "./CompanionPicker";
 import { DateField } from "./DateField";
@@ -274,9 +274,13 @@ export function RankSheet({
               value={details.review}
               onChangeText={(review) => setDetails({ ...details, review })}
             />
-            <Text style={styles.label}>Watched on</Text>
+            <Text style={styles.label}>{doneVerb(title.mediaType)} on</Text>
             <DateField value={details.watchedAt} onChange={(watchedAt) => setDetails({ ...details, watchedAt })} noFuture />
-            <CompanionPicker value={details.companions} onChange={(companions) => setDetails({ ...details, companions })} />
+            <CompanionPicker
+              label={`${doneVerb(title.mediaType)} with`}
+              value={details.companions}
+              onChange={(companions) => setDetails({ ...details, companions })}
+            />
             {title.mediaType === "tv" && title.seasons.length > 0 && (
               <>
                 <EpisodeField

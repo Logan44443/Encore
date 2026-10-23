@@ -169,7 +169,14 @@ export async function pendingTags(userId: string): Promise<PendingTag[]> {
       createdAt: watchCompanions.createdAt,
       by: { id: owners.id, username: owners.username, displayName: owners.displayName },
       watchedAt: titleEntries.watchedAt,
-      title: { tmdbId: titles.tmdbId, mediaType: titles.mediaType, name: titles.name, year: titles.year, posterUrl: titles.posterUrl },
+      title: {
+        tmdbId: titles.tmdbId,
+        mediaType: titles.mediaType,
+        name: titles.name,
+        year: titles.year,
+        posterUrl: titles.posterUrl,
+        author: titles.author,
+      },
       show: { id: liveShows.id, name: liveShows.name, date: liveShows.date, kind: liveShows.kind },
       venue: venues.name,
     })

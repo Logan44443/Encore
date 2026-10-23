@@ -10,23 +10,32 @@ import { Avatar, Button, Muted } from "./ui";
  * "Watched with": a row showing who's picked, which opens a sheet listing your
  * friends, with a box for adding anyone else by name (kept private to you).
  */
-export function CompanionPicker({ value, onChange }: { value: CompanionDraft[]; onChange: (value: CompanionDraft[]) => void }) {
+export function CompanionPicker({
+  value,
+  onChange,
+  label = "Watched with",
+}: {
+  value: CompanionDraft[];
+  onChange: (value: CompanionDraft[]) => void;
+  /** "Read with" for books. */
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <View style={{ gap: 6 }}>
-      <Text style={styles.label}>Watched with</Text>
+      <Text style={styles.label}>{label}</Text>
       <Pressable onPress={() => setOpen(true)} style={styles.field} accessibilityRole="button">
         <Text style={[styles.fieldText, !value.length && { color: colors.muted }]} numberOfLines={2}>
           {value.length ? value.map(draftLabel).join(", ") : "Add friends or names"}
         </Text>
         <Text style={styles.chevron}>›</Text>
       </Pressable>
-      {open && <PickerSheet value={value} onDone={(next) => (onChange(next), setOpen(false))} />}
+      {open && <PickerSheet title={label} value={value} onDone={(next) => (onChange(next), setOpen(false))} />}
     </View>
   );
 }
 
-function PickerSheet({ value, onDone }: { value: CompanionDraft[]; onDone: (value: CompanionDraft[]) => void }) {
+function PickerSheet({ title, value, onDone }: { title: string; value: CompanionDraft[]; onDone: (value: CompanionDraft[]) => void }) {
   const insets = useSafeAreaInsets();
   const friends = useFriends();
   const [picked, setPicked] = useState(value);
@@ -53,7 +62,7 @@ function PickerSheet({ value, onDone }: { value: CompanionDraft[]; onDone: (valu
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={() => onDone(picked)}>
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Watched with</Text>
+          <Text style={styles.title}>{title}</Text>
           <Pressable onPress={() => onDone(picked)} hitSlop={12}>
             <Text style={styles.done}>Done</Text>
           </Pressable>

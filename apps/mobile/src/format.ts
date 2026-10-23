@@ -1,4 +1,18 @@
-import { ApiError, type LiveShow, type Venue } from "@encore/shared";
+import { ApiError, MEDIA_TYPES, type LiveShow, type MediaType, type TitleSummary, type Venue } from "@encore/shared";
+
+/** A media type from a route param, defaulting to movies. */
+export function parseMediaType(value: string | undefined): MediaType {
+  return MEDIA_TYPES.find((t) => t === value) ?? "movie";
+}
+
+/** "Read" for books, "Watched" for everything else. */
+export const doneVerb = (mediaType: MediaType) => (mediaType === "book" ? "Read" : "Watched");
+
+/** The line under a title's name: the author for books, otherwise the year. */
+export function titleByline(title: Pick<TitleSummary, "mediaType" | "year" | "author">): string {
+  if (title.mediaType === "book") return [title.author, title.year].filter(Boolean).join(" · ");
+  return title.year ? String(title.year) : "";
+}
 
 export function errorMessage(err: unknown): string | null {
   if (!err) return null;

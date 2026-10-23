@@ -37,12 +37,13 @@ function GenreChips({ items, genreId, onChange }: { items: { genreId: number; ge
   );
 }
 
-function MovieRankings() {
+/** Movies and books: one ranked list per genre, best first. */
+function GenreRankings({ mediaType }: { mediaType: "movie" | "book" }) {
   const router = useRouter();
   const [genreId, setGenreId] = useState<number | null>(null);
   const { data, error, isLoading } = useQuery({
-    queryKey: ["entries", "movie"],
-    queryFn: () => api.entries.list({ mediaType: "movie" }),
+    queryKey: ["entries", mediaType],
+    queryFn: () => api.entries.list({ mediaType }),
   });
   const all = data?.entries ?? [];
   const entries = all.filter((e) => genreId === null || e.genreId === genreId);
@@ -53,10 +54,14 @@ function MovieRankings() {
       {isLoading ? (
         <Loading />
       ) : all.length === 0 ? (
-        <>
-          <Empty title="Nothing ranked yet" body="Rank a movie from its page, or bring over everything you've rated on Letterboxd." />
-          <Button label="Import from Letterboxd" tone="ghost" onPress={() => router.push("/import-letterboxd")} />
-        </>
+        mediaType === "movie" ? (
+          <>
+            <Empty title="Nothing ranked yet" body="Rank a movie from its page, or bring over everything you've rated on Letterboxd." />
+            <Button label="Import from Letterboxd" tone="ghost" onPress={() => router.push("/import-letterboxd")} />
+          </>
+        ) : (
+          <Empty title="No books ranked yet" body="Search for a book you've read and rank it from its page." />
+        )
       ) : (
         entries.map((e, i) => <EntryRow key={e.id} entry={e} rank={i + 1} />)
       )}
@@ -109,7 +114,7 @@ function Rankings() {
     <Screen>
       <H1>Your rankings</H1>
       <Muted>
-        {type === "movie"
+        {type !== "tv"
           ? "Scores come from head-to-head comparisons within each genre."
           : "Rank shows, seasons or single episodes. Episodes fill in their season's score, and seasons fill in the show's, unless you've ranked it yourself."}
       </Muted>
@@ -117,8 +122,9 @@ function Rankings() {
       <View style={{ flexDirection: "row", gap: 8 }}>
         <Chip label="Movies" active={type === "movie"} onPress={() => setType("movie")} />
         <Chip label="TV" active={type === "tv"} onPress={() => setType("tv")} />
+        <Chip label="Books" active={type === "book"} onPress={() => setType("book")} />
       </View>
-      {type === "movie" ? <MovieRankings /> : <TvRankings />}
+      {type === "tv" ? <TvRankings /> : <GenreRankings key={type} mediaType={type} />}
     </Screen>
   );
 }

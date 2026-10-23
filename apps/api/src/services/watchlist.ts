@@ -58,7 +58,7 @@ export async function listWatchlist(userId: string, kind?: WatchlistKind): Promi
 
 /** Adds an item, or returns the existing one if it's already on the list. */
 export async function addToWatchlist(userId: string, input: AddInput): Promise<WatchlistItem> {
-  if (input.kind === "movie" || input.kind === "tv") {
+  if (input.kind === "movie" || input.kind === "tv" || input.kind === "book") {
     const title = await getTitle(input.kind as MediaType, input.tmdbId);
     await db
       .insert(watchlistItems)
