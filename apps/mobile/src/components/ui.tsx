@@ -18,7 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../auth";
 import { errorMessage } from "../format";
-import { colors } from "../theme";
+import { colors, scoreColor } from "../theme";
 
 export function Screen({
   children,
@@ -283,7 +283,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export function ScoreBadge({ score, color, size = 44 }: { score: number; color: string; size?: number }) {
+export function ScoreBadge({ score, size = 44 }: { score: number; size?: number }) {
+  const color = scoreColor(score);
   return (
     <View style={[styles.badge, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
       <Text style={{ color, fontWeight: "800", fontSize: size > 60 ? 28 : 14 }}>{score.toFixed(1)}</Text>

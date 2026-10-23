@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { companionNames } from "../companions";
 import { showPhoto, showTitle } from "../format";
-import { colors, tierColor } from "../theme";
+import { colors } from "../theme";
 import { Poster } from "./Poster";
 import { ScoreBadge } from "./ui";
 
@@ -23,7 +23,7 @@ export function EntryRow({ entry, rank }: { entry: Entry; rank?: number }) {
           {companionNames(entry.companions) ? ` · with ${companionNames(entry.companions)}` : ""}
         </Text>
       </View>
-      <ScoreBadge score={entry.score} color={tierColor[entry.tier]} />
+      <ScoreBadge score={entry.score} />
     </Pressable>
   );
 }
@@ -53,7 +53,7 @@ export function LiveShowRow({ show, owner }: { show: LiveShow; owner?: string })
           {withWhom ? ` · with ${withWhom}` : ""}
         </Text>
       </View>
-      {show.rating !== null ? <ScoreBadge score={show.rating} color={colors.brand} /> : null}
+      {show.rating !== null ? <ScoreBadge score={show.rating} /> : null}
     </Pressable>
   );
 }

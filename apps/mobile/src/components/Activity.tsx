@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { companionNames } from "../companions";
 import { showPhoto, showTitle } from "../format";
-import { colors, tierColor } from "../theme";
+import { colors } from "../theme";
 import { Poster } from "./Poster";
 import { Avatar, ScoreBadge } from "./ui";
 
@@ -52,9 +52,9 @@ export function ActivityRow({ item }: { item: ActivityItem }) {
         ) : null}
       </View>
       {isEntry ? (
-        <ScoreBadge score={item.entry.score} color={tierColor[item.entry.tier]} />
+        <ScoreBadge score={item.entry.score} />
       ) : item.show.rating !== null ? (
-        <ScoreBadge score={item.show.rating} color={colors.brand} />
+        <ScoreBadge score={item.show.rating} />
       ) : null}
     </Pressable>
   );

@@ -12,7 +12,7 @@ import { AuthGate, Button, Card, ErrorText, H1, Loading, Muted, Screen } from "@
 import { companionNames } from "@/companions";
 import { formatDate, formatPlace, mapUrl, showPhoto, showTitle } from "@/format";
 import { formToPayload, showToForm, type LiveShowFormValues } from "@/live-form";
-import { colors } from "@/theme";
+import { colors, scoreColor } from "@/theme";
 
 const REACTION: Record<SongReaction, string> = { loved: "Loved", liked: "Liked", disliked: "Didn't like" };
 
@@ -103,7 +103,7 @@ function Detail() {
       </Muted>
       <H1>{showTitle(show)}</H1>
       {theirs ? <Muted>@{owner}'s show</Muted> : null}
-      {show.rating !== null && <Text style={{ color: colors.brand, fontSize: 28, fontWeight: "900" }}>{show.rating.toFixed(1)}</Text>}
+      {show.rating !== null && <Text style={{ color: scoreColor(show.rating), fontSize: 28, fontWeight: "900" }}>{show.rating.toFixed(1)}</Text>}
       {show.venue && (
         <Card>
           <Text style={{ color: colors.text, fontWeight: "800" }}>{show.venue.name}</Text>

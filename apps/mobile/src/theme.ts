@@ -1,4 +1,4 @@
-import type { Tier } from "@encore/shared";
+import { tierForScore, type Tier } from "@encore/shared";
 
 export const colors = {
   ink: "#0b0b0f",
@@ -20,6 +20,16 @@ export const tierColor: Record<Tier, string> = {
   fine: colors.fine,
   disliked: colors.disliked,
 };
+
+/**
+ * The one colour for any 0–10 score: green for the "liked" range, yellow for
+ * "fine", red for "disliked" (see TIER_RANGES). Use this (or ScoreBadge, which
+ * uses it) wherever a score is shown, whatever the media type, so every score
+ * in the app reads the same. No score is muted.
+ */
+export function scoreColor(score: number | null | undefined): string {
+  return score === null || score === undefined ? colors.muted : tierColor[tierForScore(score)];
+}
 
 export const headerOptions = {
   headerStyle: { backgroundColor: colors.ink },

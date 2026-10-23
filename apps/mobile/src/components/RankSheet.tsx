@@ -27,7 +27,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { draftsToInput, type CompanionDraft } from "../companions";
 import { formatEpisode, localToday } from "../format";
-import { colors, tierColor } from "../theme";
+import { colors, scoreColor, tierColor } from "../theme";
 import { CompanionPicker } from "./CompanionPicker";
 import { DateField } from "./DateField";
 import { Poster } from "./Poster";
@@ -238,13 +238,13 @@ export function RankSheet({
                 : `It's your second ${genre.toLowerCase()} title under "${TIER_LABELS[tier]}", so you pick this one too. After that, new ones get ranked by comparing.`}
             </Muted>
             <View style={{ alignItems: "center", paddingVertical: 8 }}>
-              <ScoreBadge score={score} color={tierColor[tier]} size={80} />
+              <ScoreBadge score={score} size={80} />
             </View>
             <ScoreSlider
               value={score}
               min={TIER_RANGES[tier].min}
               max={TIER_RANGES[tier].max}
-              color={tierColor[tier]}
+              color={scoreColor(score)}
               onChange={setScore}
             />
             {candidates[0] && (
@@ -313,7 +313,7 @@ export function RankSheet({
           <View style={{ alignItems: "center", gap: 12, paddingTop: 24 }}>
             {result ? (
               <>
-                <ScoreBadge score={result.entry.score} color={tierColor[result.entry.tier]} size={80} />
+                <ScoreBadge score={result.entry.score} size={80} />
                 <Text style={styles.h2}>
                   #{result.rank} of {result.outOf} in {result.entry.genreName}
                 </Text>
