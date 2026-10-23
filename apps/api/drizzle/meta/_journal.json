@@ -120,6 +120,20 @@
       "when": 1792716266656,
       "tag": "0016_books",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792716798821,
+      "tag": "0017_catalog_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792716806686,
+      "tag": "0018_drop_letterboxd_imports",
+      "breakpoints": true
     }
   ]
 }

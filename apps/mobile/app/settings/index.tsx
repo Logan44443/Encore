@@ -97,7 +97,8 @@ function Settings() {
       </SettingsGroup>
 
       <SettingsGroup title="Your data">
-        <SettingsRow label="Import from Letterboxd" onPress={() => router.push("/import-letterboxd")} last />
+        <SettingsRow label="Import from Letterboxd" onPress={() => router.push("/import-letterboxd")} />
+        <SettingsRow label="Import from Goodreads" onPress={() => router.push("/import-goodreads")} last />
       </SettingsGroup>
 
       <SettingsGroup>

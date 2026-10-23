@@ -38,6 +38,7 @@ export default function RootLayout() {
           <Stack.Screen name="compare/[username]" options={{ title: "Compare" }} />
           <Stack.Screen name="report" options={{ title: "Report", presentation: "modal" }} />
           <Stack.Screen name="import-letterboxd" options={{ title: "Letterboxd", presentation: "modal" }} />
+          <Stack.Screen name="import-goodreads" options={{ title: "Goodreads", presentation: "modal" }} />
           <Stack.Screen name="guidelines" options={{ title: "Community guidelines", presentation: "modal" }} />
         </Stack>
       </AuthProvider>

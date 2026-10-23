@@ -270,8 +270,8 @@ export const changePasswordSchema = z.object({
   newPassword: newPasswordSchema,
 });
 
-/** Picks the right title for a Letterboxd film Encore couldn't match, or skips it (no tmdbId). */
-export const letterboxdFixSchema = z.object({
+/** Picks the right title for an imported film or book Encore couldn't match, or skips it (no tmdbId). */
+export const importFixSchema = z.object({
   key: z.string().min(1).max(300),
   tmdbId: z.number().int().positive().optional(),
 });
@@ -306,4 +306,4 @@ export type CreateLiveShowInput = z.input<typeof createLiveShowSchema>;
 export type UpdateLiveShowInput = z.input<typeof updateLiveShowSchema>;
 export type AddWatchlistInput = z.input<typeof addWatchlistSchema>;
 export type UpdateWatchlistInput = z.input<typeof updateWatchlistSchema>;
-export type LetterboxdFixInput = z.input<typeof letterboxdFixSchema>;
+export type ImportFixInput = z.input<typeof importFixSchema>;
