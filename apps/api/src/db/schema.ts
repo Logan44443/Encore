@@ -1,4 +1,4 @@
-import type { EpisodeRef, Genre, LetterboxdImportCounts, LetterboxdUnmatched, SeasonSummary, TitleSummary } from "@encore/shared";
+import type { EpisodeRef, Genre, ImportCounts, ImportSource, ImportUnmatched, SeasonSummary, TitleSummary } from "@encore/shared";
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
@@ -485,20 +485,29 @@ export const passwordResetCodes = pgTable("password_reset_codes", {
 });
 
 /**
- * Each user's latest Letterboxd import: progress while it runs, then what it did
- * and the films still to sort out by hand. Importing again replaces the row.
+ * Each user's latest import from each source (Letterboxd, Goodreads): progress
+ * while it runs, then what it did and the items still to sort out by hand.
+ * Importing again replaces that source's row.
  */
-export const letterboxdImports = pgTable("letterboxd_imports", {
-  userId: uuid("user_id")
-    .primaryKey()
-    .references(() => users.id, { onDelete: "cascade" }),
-  status: text("status").$type<"running" | "done" | "failed">().notNull(),
-  done: integer("done").notNull().default(0),
-  total: integer("total").notNull(),
-  error: text("error"),
-  counts: jsonb("counts").$type<LetterboxdImportCounts>().notNull(),
-  unmatched: jsonb("unmatched").$type<(LetterboxdUnmatched & { review: string | null; loggedAt: string | null })[]>().notNull().default([]),
-  notRated: jsonb("not_rated").$type<TitleSummary[]>().notNull().default([]),
-  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
-  finishedAt: timestamp("finished_at", { withTimezone: true }),
-});
+export const catalogImports = pgTable(
+  "catalog_imports",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    source: text("source").$type<ImportSource>().notNull(),
+    status: text("status").$type<"running" | "done" | "failed">().notNull(),
+    done: integer("done").notNull().default(0),
+    total: integer("total").notNull(),
+    error: text("error"),
+    counts: jsonb("counts").$type<ImportCounts>().notNull(),
+    unmatched: jsonb("unmatched").$type<StoredUnmatched[]>().notNull().default([]),
+    notRated: jsonb("not_rated").$type<TitleSummary[]>().notNull().default([]),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.source] })],
+);
+
+/** An unmatched item plus what's needed to import it once the user picks the title. */
+export type StoredUnmatched = ImportUnmatched & { review: string | null; loggedAt: string | null };

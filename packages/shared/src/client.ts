@@ -24,7 +24,7 @@ import type {
   UpdateServicesInput,
   UpdateEntryInput,
   UpdateLiveShowInput,
-  LetterboxdFixInput,
+  ImportFixInput,
 } from "./schemas";
 import type { PasswordResetConfirmInput, PasswordResetRequestInput } from "./password-reset";
 import type {
@@ -42,7 +42,8 @@ import type {
   FriendsOnTitle,
   GenreRecommendations,
   GenreSummary,
-  LetterboxdImport,
+  CatalogImport,
+  ImportSource,
   LiveShow,
   Performer,
   Profile,
@@ -141,6 +142,16 @@ export function createApiClient({
   }
 
   const p = (path: string) => path.replace(/^\//, "");
+
+  /** One export importer (Letterboxd films, Goodreads books); each has its own latest import. */
+  const importer = (source: ImportSource) => ({
+    /** Your latest import from this source (running or finished), or null if you've never imported. */
+    status: () => request<{ import: CatalogImport | null }>("GET", p(`/import/${source}`)),
+    /** Starts an import from the export file(s) under the field name "files". It runs in the background; poll `status`. */
+    start: (form: FormData) => request<{ import: CatalogImport }>("POST", p(`/import/${source}`), { form, timeoutMs: 120_000 }),
+    /** Imports an unmatched item as the title you picked, or skips it when tmdbId is left out. */
+    fix: (body: ImportFixInput) => request<{ import: CatalogImport }>("POST", p(`/import/${source}/fix`), { body }),
+  });
 
   return {
     health: () => request<{ ok: true; providers: ProviderStatus }>("GET", p("/health")),
@@ -271,18 +282,10 @@ export function createApiClient({
       remove: (id: string) => request<null>("DELETE", p(`/companions/${id}`)),
     },
 
-    letterboxd: {
-      /** Your latest Letterboxd import (running or finished), or null if you've never imported. */
-      status: () => request<{ import: LetterboxdImport | null }>("GET", p("/import/letterboxd")),
-      /**
-       * Starts an import from Letterboxd's export: the ZIP, or any of its CSVs, under the
-       * field name "files". It runs in the background; poll `status` for progress.
-       */
-      start: (form: FormData) =>
-        request<{ import: LetterboxdImport }>("POST", p("/import/letterboxd"), { form, timeoutMs: 120_000 }),
-      /** Imports an unmatched film as the title you picked, or skips it when tmdbId is left out. */
-      fix: (body: LetterboxdFixInput) => request<{ import: LetterboxdImport }>("POST", p("/import/letterboxd/fix"), { body }),
-    },
+    /** Letterboxd's export: the ZIP, or any of its CSVs. */
+    letterboxd: importer("letterboxd"),
+    /** Goodreads' "Export Library" CSV. */
+    goodreads: importer("goodreads"),
 
     account: {
       updateProfile: (body: UpdateProfileInput) => request<{ user: User }>("PATCH", p("/account/profile"), { body }),

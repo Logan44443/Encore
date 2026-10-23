@@ -1,0 +1,1 @@
+DROP TABLE "letterboxd_imports" CASCADE;

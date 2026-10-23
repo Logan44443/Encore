@@ -60,7 +60,10 @@ function GenreRankings({ mediaType }: { mediaType: "movie" | "book" }) {
             <Button label="Import from Letterboxd" tone="ghost" onPress={() => router.push("/import-letterboxd")} />
           </>
         ) : (
-          <Empty title="No books ranked yet" body="Search for a book you've read and rank it from its page." />
+          <>
+            <Empty title="No books ranked yet" body="Rank a book from its page, or bring over everything you've rated on Goodreads." />
+            <Button label="Import from Goodreads" tone="ghost" onPress={() => router.push("/import-goodreads")} />
+          </>
         )
       ) : (
         entries.map((e, i) => <EntryRow key={e.id} entry={e} rank={i + 1} />)

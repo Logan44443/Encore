@@ -491,39 +491,44 @@ export interface ProviderStatus {
   setlistFm: boolean;
 }
 
-/** A film from a Letterboxd export that Encore couldn't match to a catalog title by itself. */
-export interface LetterboxdUnmatched {
-  /** Stable id for this film within the import, for fixing or skipping it. */
+/** Where an import comes from: Letterboxd brings films, Goodreads brings books. */
+export type ImportSource = "letterboxd" | "goodreads";
+
+/** A film or book from an export that Encore couldn't match to a catalog title by itself. */
+export interface ImportUnmatched {
+  /** Stable id for this item within the import, for fixing or skipping it. */
   key: string;
   name: string;
   year: number | null;
-  /** Letterboxd stars (½ to 5), or null when it wasn't rated. */
+  /** Books only. */
+  author?: string | null;
+  /** Stars (½ to 5 on Letterboxd, 1 to 5 on Goodreads), or null when it wasn't rated. */
   rating: number | null;
   watchedAt: string | null;
-  /** "watched" films get ranked (when rated); "watchlist" ones go on the watchlist. */
+  /** "watched" (or read) items get ranked when rated; "watchlist" ones go on the watchlist. */
   kind: "watched" | "watchlist";
 }
 
-export interface LetterboxdImportCounts {
-  /** Rated films added to your movie rankings. */
+export interface ImportCounts {
+  /** Rated items added to your rankings. */
   ranked: number;
-  /** Films you'd already ranked in Encore; those rankings were left as they are. */
+  /** Items you'd already ranked in Encore; those rankings were left as they are. */
   alreadyRanked: number;
   watchlisted: number;
-  /** Watched but never rated on Letterboxd, so there was no score to rank them with. */
+  /** Watched or read but never rated, so there was no score to rank them with. */
   notRated: number;
   unmatched: number;
 }
 
-export interface LetterboxdImport {
+export interface CatalogImport {
   status: "running" | "done" | "failed";
-  /** Films processed so far, out of `total`. */
+  /** Items processed so far, out of `total`. */
   done: number;
   total: number;
   error: string | null;
-  counts: LetterboxdImportCounts;
-  unmatched: LetterboxdUnmatched[];
-  /** Watched-but-unrated films that were matched, to rank by hand. */
+  counts: ImportCounts;
+  unmatched: ImportUnmatched[];
+  /** Watched-but-unrated items that were matched, to rank by hand. */
   notRated: TitleSummary[];
   startedAt: string;
   finishedAt: string | null;

@@ -21,10 +21,24 @@ const CATALOG: Freshness = { fresh: DAY, stale: 14 * DAY };
 /** Fields asked of /search.json; anything else makes the response much bigger. */
 const FIELDS = "key,title,author_name,author_key,first_publish_year,cover_i,subject,ratings_average,ratings_count,number_of_pages_median";
 
+/**
+ * Open Library asks apps to stay around 3 requests a second. Requests that miss
+ * the cache wait for a slot, so a big Goodreads import can't flood it.
+ */
+const MIN_GAP_MS = 350;
+let nextSlot = 0;
+function slot(): Promise<void> {
+  const now = Date.now();
+  const at = Math.max(now, nextSlot);
+  nextSlot = at + MIN_GAP_MS;
+  return at > now ? new Promise((r) => setTimeout(r, at - now)) : Promise.resolve();
+}
+
 async function ol<T>(path: string, params: Record<string, string> = {}, freshness = CATALOG): Promise<T> {
   const url = new URL(BASE + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   return swr<T>(`ol:${url.pathname}${url.search}`, freshness, async () => {
+    await slot();
     // Open Library asks heavy users to identify themselves.
     const res = await fetch(url, {
       headers: { Accept: "application/json", "User-Agent": env.musicBrainzUserAgent },
