@@ -7,11 +7,13 @@ import { DateField } from "@/components/DateField";
 import { PerformerPhoto } from "@/components/PerformerPhoto";
 import { Poster } from "@/components/Poster";
 import { AuthGate, Button, Chip, Empty, ErrorText, Field, H1, Loading, Muted, Screen } from "@/components/ui";
-import { daysUntil, formatDate } from "@/format";
+import { daysUntil, formatDate, titleByline } from "@/format";
 import { colors } from "@/theme";
 import { useWatchlist, useWatchlistMutations } from "@/watchlist";
 
 type Tab = "all" | WatchlistKind;
+
+const KIND_NAME: Partial<Record<WatchlistKind, string>> = { movie: "Movie", tv: "TV", book: "Book" };
 
 export default function WatchlistScreen() {
   return (
@@ -32,7 +34,7 @@ function Watchlist() {
   return (
     <Screen>
       <H1>Watchlist</H1>
-      <Muted>Movies, shows, artists, and festivals. They come off once you rank or log them.</Muted>
+      <Muted>Movies, shows, books, artists, and festivals. They come off once you rank or log them.</Muted>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <Chip label={`All ${items.length}`} active={tab === "all"} onPress={() => setTab("all")} />
         {WATCHLIST_KINDS.map((k) => (
@@ -84,7 +86,7 @@ function WatchRow({ item }: { item: WatchlistItem }) {
         <Text style={{ color: colors.text, fontWeight: "700" }}>{title}</Text>
         <Muted>
           {item.title
-            ? `${item.kind === "movie" ? "Movie" : "TV"}${item.title.year ? ` · ${item.title.year}` : ""}`
+            ? [KIND_NAME[item.kind], titleByline(item.title)].filter(Boolean).join(" · ")
             : item.performer
               ? "Artist"
               : `Festival${festival?.date ? ` · ${formatDate(festival.date)}` : ""}${days !== null && days >= 0 ? (days === 0 ? " · today" : ` · in ${days} days`) : ""}`}
@@ -114,8 +116,8 @@ function AddPanel({ tab }: { tab: Tab }) {
     return <AddFestival />;
   }
   if (tab === "all") return null;
-  const type = tab === "tv" ? "tv" : "movie";
-  return <Button label={tab === "tv" ? "Find shows" : "Find movies"} tone="ghost" onPress={() => router.push(`/discover?type=${type}`)} />;
+  const find = { movie: "Find movies", tv: "Find shows", book: "Find books" } as const;
+  return <Button label={find[tab]} tone="ghost" onPress={() => router.push(`/discover?type=${tab}`)} />;
 }
 
 function AddFestival() {

@@ -55,6 +55,7 @@ const titleColumns = {
   name: titles.name,
   year: titles.year,
   posterUrl: titles.posterUrl,
+  author: titles.author,
   overview: titles.overview,
   genres: titles.genres,
 };
@@ -80,7 +81,16 @@ async function globalMean(type: MediaType): Promise<number> {
 const bayes = (sum: number, n: number, mean: number) => (PRIOR_WEIGHT * mean + sum) / (PRIOR_WEIGHT + n);
 
 function toResult(
-  row: { tmdbId: number; mediaType: MediaType; name: string; year: number | null; posterUrl: string | null; overview: string; genres: { id: number }[] },
+  row: {
+    tmdbId: number;
+    mediaType: MediaType;
+    name: string;
+    year: number | null;
+    posterUrl: string | null;
+    author: string | null;
+    overview: string;
+    genres: { id: number }[];
+  },
   community: CommunityStats | null,
 ): DiscoverResult {
   return {
@@ -89,6 +99,7 @@ function toResult(
     name: row.name,
     year: row.year,
     posterUrl: row.posterUrl,
+    ...(row.mediaType === "book" ? { author: row.author } : {}),
     overview: row.overview,
     genreIds: row.genres.map((g) => g.id),
     voteAverage: null,

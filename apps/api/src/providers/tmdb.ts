@@ -83,9 +83,9 @@ function toSearchResult(type: MediaType, r: TmdbListItem): SearchResult {
 }
 
 /** Minimum vote counts so obscure titles with a handful of 10/10s don't top genre charts. */
-const MIN_VOTES: Record<MediaType, string> = { movie: "1500", tv: "300" };
+const MIN_VOTES: Record<MediaType, string> = { movie: "1500", tv: "300", book: "0" };
 /** Lower bar for "popular now" so new releases qualify, but still skips unreleased/empty pages. */
-const POPULAR_MIN_VOTES: Record<MediaType, string> = { movie: "100", tv: "50" };
+const POPULAR_MIN_VOTES: Record<MediaType, string> = { movie: "100", tv: "50", book: "0" };
 
 export const tmdbCatalog: CatalogProvider = {
   kind: "live",

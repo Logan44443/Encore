@@ -22,6 +22,8 @@ export const env = {
   corsOrigins: (process.env.CORS_ORIGINS ?? "*").split(",").map((s) => s.trim()),
   tmdbApiKey: process.env.TMDB_API_KEY || null,
   tmdbReadToken: process.env.TMDB_READ_TOKEN || null,
+  /** Optional: Google Books fills in book covers and blurbs Open Library is missing. */
+  googleBooksApiKey: process.env.GOOGLE_BOOKS_API_KEY || null,
   setlistFmApiKey: process.env.SETLISTFM_API_KEY || null,
   musicBrainzUserAgent: process.env.MUSICBRAINZ_USER_AGENT || "Encore/0.1 (https://github.com/encore)",
 };

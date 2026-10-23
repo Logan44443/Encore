@@ -4,7 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import { db } from "../db/client";
 import { titles } from "../db/schema";
 import { DAY } from "../lib/cache";
-import { catalog } from "../providers/catalog";
+import { catalog, providerFor } from "../providers/catalog";
 
 export type TitleRow = typeof titles.$inferSelect;
 
@@ -18,7 +18,8 @@ export async function getTitle(mediaType: MediaType, tmdbId: number): Promise<Ti
   const existing = await db.query.titles.findFirst({
     where: and(eq(titles.tmdbId, tmdbId), eq(titles.mediaType, mediaType)),
   });
-  if (existing && existing.source === catalog.source && Date.now() - existing.fetchedAt.getTime() < REFRESH_AFTER) {
+  const source = providerFor(mediaType).source;
+  if (existing && existing.source === source && Date.now() - existing.fetchedAt.getTime() < REFRESH_AFTER) {
     return existing;
   }
 
@@ -44,7 +45,9 @@ export async function getTitle(mediaType: MediaType, tmdbId: number): Promise<Ti
     backdropUrl: fresh.backdropUrl,
     genres: fresh.genres,
     seasons: fresh.seasons,
-    source: catalog.source,
+    author: fresh.author ?? null,
+    pageCount: fresh.pageCount ?? null,
+    source,
     fetchedAt: new Date(),
   };
   const [row] = await db
@@ -55,8 +58,12 @@ export async function getTitle(mediaType: MediaType, tmdbId: number): Promise<Ti
   return row;
 }
 
-export function toTitleSummary(row: Pick<TitleRow, "tmdbId" | "mediaType" | "name" | "year" | "posterUrl">): TitleSummary {
-  return { tmdbId: row.tmdbId, mediaType: row.mediaType, name: row.name, year: row.year, posterUrl: row.posterUrl };
+export function toTitleSummary(
+  row: Pick<TitleRow, "tmdbId" | "mediaType" | "name" | "year" | "posterUrl"> & { author?: string | null },
+): TitleSummary {
+  const summary: TitleSummary = { tmdbId: row.tmdbId, mediaType: row.mediaType, name: row.name, year: row.year, posterUrl: row.posterUrl };
+  if (row.mediaType === "book") summary.author = row.author ?? null;
+  return summary;
 }
 
 export function toTitle(row: TitleRow): Title {
@@ -66,5 +73,6 @@ export function toTitle(row: TitleRow): Title {
     backdropUrl: row.backdropUrl,
     genres: row.genres,
     seasons: row.seasons,
+    ...(row.mediaType === "book" ? { pageCount: row.pageCount } : {}),
   };
 }

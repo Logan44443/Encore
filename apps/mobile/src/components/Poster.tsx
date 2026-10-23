@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../auth";
+import { titleByline } from "../format";
 import { colors } from "../theme";
 import { useToggleTitle } from "../watchlist";
 
@@ -46,7 +47,7 @@ export function TitleCard({
         {item.name}
       </Text>
       <Text style={styles.meta} numberOfLines={1}>
-        {[item.year, community ? `${community.avgScore.toFixed(1)} avg` : null].filter(Boolean).join(" · ")}
+        {[titleByline(item), community ? `${community.avgScore.toFixed(1)} avg` : null].filter(Boolean).join(" · ")}
       </Text>
     </Pressable>
   );

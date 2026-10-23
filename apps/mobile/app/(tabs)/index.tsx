@@ -23,13 +23,14 @@ function Landing() {
   const features = [
     ["Rank movies by genre", "Compare a film with your other thrillers, comedies, or dramas. The list orders itself."],
     ["Track every series", "Score shows the same way, then rank their seasons against each other."],
+    ["Rank what you read", "Books get the same head-to-head scores, genre by genre."],
     ["Relive every show", "Concerts, festivals, DJ sets, theatre. Lineup, venue, setlist, and what hit."],
     ["A watchlist for all of it", "Movies, shows, artists you want to see, and festivals. They drop off once you log them."],
   ];
   return (
     <Screen>
       <H1>Everything you watch. Every show you're at.</H1>
-      <Muted>Head-to-head choices become honest scores for movies, TV, and the seasons of a show.</Muted>
+      <Muted>Head-to-head choices become honest scores for movies, TV, books, and the seasons of a show.</Muted>
       <Button label="Get started" onPress={() => router.push("/register")} />
       <Button label="Browse titles" tone="ghost" onPress={() => router.push("/discover")} />
       {features.map(([title, body]) => (
@@ -60,6 +61,7 @@ function Dashboard({ name }: { name: string }) {
       <View style={styles.actions}>
         <Action icon="film-outline" label="Movie" onPress={() => router.push("/discover?type=movie")} />
         <Action icon="tv-outline" label="Series" onPress={() => router.push("/discover?type=tv")} />
+        <Action icon="book-outline" label="Book" onPress={() => router.push("/discover?type=book")} />
         <Action icon="ticket-outline" label="Live show" onPress={() => router.push("/show/new")} />
       </View>
 
@@ -69,7 +71,7 @@ function Dashboard({ name }: { name: string }) {
       ) : recent.length ? (
         recent.map((r) => (r.kind === "entry" ? <EntryRow key={r.entry.id} entry={r.entry} /> : <LiveShowRow key={r.show.id} show={r.show} />))
       ) : (
-        <Empty title="No rankings yet" body="Rank a movie or series, or add a show you went to." />
+        <Empty title="No rankings yet" body="Rank a movie, series or book, or add a show you went to." />
       )}
 
       <FriendsActivity />

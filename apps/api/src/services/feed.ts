@@ -21,7 +21,7 @@ import { friendPicks } from "./friend-rankings";
 import { listWatchlist } from "./watchlist";
 
 /**
- * "Recommended for you": one ranked feed across movies and TV.
+ * "Recommended for you": one ranked feed across movies and TV (books stay out of it).
  *
  * Candidates come from five sources, each adding points:
  *   similar   — catalog "more like this" for your top liked titles   3 × seed score / 10
@@ -69,12 +69,14 @@ export function getFeed(userId: string): Promise<Feed> {
 }
 
 async function buildFeed(userId: string): Promise<Feed> {
-  const [entries, dismissed, watchlist, user] = await Promise.all([
+  const [allEntries, dismissed, watchlist, user] = await Promise.all([
     listEntries(userId, {}),
     db.select().from(dismissedTitles).where(eq(dismissedTitles.userId, userId)),
     listWatchlist(userId),
     db.query.users.findFirst({ where: eq(users.id, userId), columns: { country: true, services: true } }),
   ]);
+  // The feed is what to watch next; books have their own picks on Discover.
+  const entries = allEntries.filter((e) => e.title.mediaType !== "book");
   const mine: MyServices | null =
     user?.country && user.services.length ? { country: user.country, ids: new Set(user.services) } : null;
 
@@ -94,7 +96,7 @@ async function buildFeed(userId: string): Promise<Feed> {
 
   const add = (title: SearchResult, points: number, reason: FeedReason, group: string) => {
     const key = keyOf(title);
-    if (excluded.has(key)) return;
+    if (excluded.has(key) || title.mediaType === "book") return;
     const c = pool.get(key);
     if (!c) {
       pool.set(key, { title, points, best: { reason, points, group } });

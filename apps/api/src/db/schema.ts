@@ -19,7 +19,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-export const mediaTypeEnum = pgEnum("media_type", ["movie", "tv"]);
+export const mediaTypeEnum = pgEnum("media_type", ["movie", "tv", "book"]);
 export const tierEnum = pgEnum("tier", ["liked", "fine", "disliked"]);
 export const songReactionEnum = pgEnum("song_reaction", ["loved", "liked", "disliked"]);
 export const showKindEnum = pgEnum("show_kind", ["concert", "festival", "dj_set", "theatre", "comedy", "other"]);
@@ -71,7 +71,10 @@ export const users = pgTable(
   (t) => [uniqueIndex("users_username_lower_idx").on(sql`lower(${t.username})`)],
 );
 
-/** Local cache of TMDB metadata so lists/profiles never hit TMDB. */
+/**
+ * Local cache of catalog metadata so lists/profiles never hit TMDB or Open Library.
+ * For books, `tmdbId` holds the number from the Open Library work id.
+ */
 export const titles = pgTable(
   "titles",
   {
@@ -85,7 +88,10 @@ export const titles = pgTable(
     backdropUrl: text("backdrop_url"),
     genres: jsonb("genres").$type<Genre[]>().notNull().default([]),
     seasons: jsonb("seasons").$type<SeasonSummary[]>().notNull().default([]),
-    /** Which catalog provider produced this row ("tmdb" | "demo"). */
+    /** Books only. */
+    author: text("author"),
+    pageCount: integer("page_count"),
+    /** Which catalog provider produced this row ("tmdb" | "demo" | "openlibrary"). */
     source: text("source").notNull().default("demo"),
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -305,10 +311,10 @@ export const liveShowSongs = pgTable(
   (t) => [index("live_show_songs_slot_idx").on(t.slotId, t.position)],
 );
 
-export const watchlistKindEnum = pgEnum("watchlist_kind", ["movie", "tv", "performer", "festival"]);
+export const watchlistKindEnum = pgEnum("watchlist_kind", ["movie", "tv", "book", "performer", "festival"]);
 
 /**
- * Things a user wants to watch or see live. Movies/shows point at `titles`,
+ * Things a user wants to watch, read or see live. Movies, shows and books point at `titles`,
  * artists at `performers`; festivals have no catalog, so their details live inline.
  */
 export const watchlistItems = pgTable(

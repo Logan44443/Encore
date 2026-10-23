@@ -152,6 +152,7 @@ export const entryColumns = {
   name: titles.name,
   year: titles.year,
   posterUrl: titles.posterUrl,
+  author: titles.author,
 };
 
 type EntryRow = Awaited<ReturnType<typeof selectEntries>>[number];

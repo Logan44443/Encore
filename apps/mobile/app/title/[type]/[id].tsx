@@ -1,4 +1,4 @@
-import { type Entry, type MediaType, type Title } from "@encore/shared";
+import { MEDIA_TYPE_LABELS, type Entry, type Title } from "@encore/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -15,15 +15,17 @@ import { SeasonSheet } from "@/components/SeasonRank";
 import { sourceNote } from "@/components/TvRows";
 import { Button, Chip, ErrorText, H1, Loading, Muted, ScoreBadge, Screen } from "@/components/ui";
 import { WhereToWatch } from "@/components/WhereToWatch";
-import { formatEpisode } from "@/format";
+import { doneVerb, formatEpisode, parseMediaType } from "@/format";
 import { colors } from "@/theme";
 import { invalidateTv, seasonName } from "@/tv";
 import { useToggleTitle } from "@/watchlist";
 
+const RANK_LABEL = { movie: "Rank this movie", tv: "Rank this show", book: "Rank this book" } as const;
+
 export default function TitleScreen() {
   // withId / withName: opened from a friend's "watched with" tag, to log it with them.
   const { type, id, withId, withName } = useLocalSearchParams<{ type: string; id: string; withId?: string; withName?: string }>();
-  const mediaType = (type === "tv" ? "tv" : "movie") as MediaType;
+  const mediaType = parseMediaType(type);
   const tmdbId = Number(id);
   const { user } = useAuth();
   const router = useRouter();
@@ -96,8 +98,9 @@ export default function TitleScreen() {
   return (
     <Screen>
       <Poster uri={title.posterUrl} name={title.name} width={160} />
-      <Muted>{mediaType === "movie" ? "Movie" : "TV series"}</Muted>
+      <Muted>{MEDIA_TYPE_LABELS[mediaType]}</Muted>
       <H1>{title.year ? `${title.name} (${title.year})` : title.name}</H1>
+      {title.author ? <Text style={{ color: colors.text, fontSize: 16, fontWeight: "600" }}>by {title.author}</Text> : null}
       {/* Your score comes first when you've ranked it (or its seasons). */}
       {myEntry && (
         <EntryCard
@@ -138,13 +141,14 @@ export default function TitleScreen() {
           <Chip key={g.id} label={g.name} onPress={() => router.push(`/discover?type=${mediaType}&genre=${g.id}`)} />
         ))}
       </View>
+      {title.pageCount ? <Muted>{title.pageCount} pages</Muted> : null}
       <Muted>{title.overview}</Muted>
-      <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} titleName={title.name} />
+      {mediaType !== "book" && <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} titleName={title.name} />}
       {user ? <FriendsOnTitle mediaType={mediaType} tmdbId={tmdbId} /> : null}
 
       {!myEntry && (
         <View style={{ gap: 8 }}>
-          <Button label={mediaType === "movie" ? "Rank this movie" : "Rank this show"} onPress={startRank} />
+          <Button label={RANK_LABEL[mediaType]} onPress={startRank} />
           {user && (
             <Button
               label={watch.saved ? "On your watchlist" : "Add to watchlist"}
@@ -225,7 +229,11 @@ function EntryCard({
         <ScoreBadge score={entry.score} size={64} />
         <View style={{ flex: 1 }}>
           <Muted>Your score in {entry.genreName}</Muted>
-          {entry.watchedAt ? <Muted>Watched {entry.watchedAt}</Muted> : null}
+          {entry.watchedAt ? (
+            <Muted>
+              {doneVerb(title.mediaType)} {entry.watchedAt}
+            </Muted>
+          ) : null}
           {seasonAverage !== null ? <Muted>Your seasons average {seasonAverage.toFixed(1)}</Muted> : null}
           <Pressable onPress={onOpenGenre}>
             <Text style={{ color: colors.brand, fontWeight: "700" }}>See your {entry.genreName} ranking</Text>
@@ -242,8 +250,12 @@ function EntryCard({
             placeholder="Your thoughts"
             placeholderTextColor={colors.muted}
           />
-          <DateField label="Watched on" value={editing.watchedAt} onChange={(watchedAt) => onChange({ ...editing, watchedAt })} noFuture />
-          <CompanionPicker value={editing.companions} onChange={(companions) => onChange({ ...editing, companions })} />
+          <DateField label={`${doneVerb(title.mediaType)} on`} value={editing.watchedAt} onChange={(watchedAt) => onChange({ ...editing, watchedAt })} noFuture />
+          <CompanionPicker
+            label={`${doneVerb(title.mediaType)} with`}
+            value={editing.companions}
+            onChange={(companions) => onChange({ ...editing, companions })}
+          />
           {title.mediaType === "tv" && title.seasons.length > 0 && (
             <>
               <EpisodeField label="Favorite episode" tmdbId={title.tmdbId} seasons={title.seasons} value={editing.favoriteEpisode} onChange={(favoriteEpisode) => onChange({ ...editing, favoriteEpisode })} />
@@ -259,7 +271,11 @@ function EntryCard({
       ) : (
         <View style={{ gap: 8 }}>
           {entry.review ? <Muted>“{entry.review}”</Muted> : null}
-          {companionNames(entry.companions) ? <Muted>Watched with {companionNames(entry.companions)}</Muted> : null}
+          {companionNames(entry.companions) ? (
+            <Muted>
+              {doneVerb(title.mediaType)} with {companionNames(entry.companions)}
+            </Muted>
+          ) : null}
           {entry.favoriteEpisode ? <Text style={{ color: colors.liked }}>Favorite: {formatEpisode(entry.favoriteEpisode)}</Text> : null}
           {entry.leastFavoriteEpisode ? <Text style={{ color: colors.disliked }}>Least favorite: {formatEpisode(entry.leastFavoriteEpisode)}</Text> : null}
           <Button label="Re-rank" tone="ghost" onPress={onRerank} />

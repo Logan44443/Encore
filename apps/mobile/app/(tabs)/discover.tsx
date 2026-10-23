@@ -9,9 +9,16 @@ import { useAuth } from "@/auth";
 import { FeedCard, UndoBar, useDismiss } from "@/components/Feed";
 import { PosterRow } from "@/components/Poster";
 import { Chip, Empty, ErrorText, H1, Loading, Muted, Screen, SectionTitle, Segmented } from "@/components/ui";
+import { parseMediaType } from "@/format";
 import { colors } from "@/theme";
 
 type Item = SearchResult | DiscoverResult;
+
+const SEARCH_PLACEHOLDER: Record<MediaType, string> = {
+  movie: "Search movies",
+  tv: "Search TV shows",
+  book: "Search books or authors",
+};
 
 const recentBadge = (item: Item) => ("community" in item && item.community?.recentLogs ? `${item.community.recentLogs} new` : undefined);
 const avgBadge = (item: Item) => ("community" in item && item.community ? item.community.avgScore.toFixed(1) : undefined);
@@ -21,7 +28,7 @@ export default function Discover() {
   const params = useLocalSearchParams<{ type?: string; genre?: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const type: MediaType = params.type === "tv" ? "tv" : "movie";
+  const type: MediaType = parseMediaType(params.type);
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
   useEffect(() => {
@@ -45,7 +52,7 @@ export default function Discover() {
         <Ionicons name="search" size={18} color={colors.muted} />
         <TextInput
           style={styles.searchInput}
-          placeholder={type === "movie" ? "Search movies" : "Search TV shows"}
+          placeholder={SEARCH_PLACEHOLDER[type]}
           placeholderTextColor={colors.muted}
           value={q}
           onChangeText={setQ}
@@ -62,9 +69,10 @@ export default function Discover() {
         options={[
           { value: "movie", label: "Movies" },
           { value: "tv", label: "TV" },
+          { value: "book", label: "Books" },
         ]}
         value={type}
-        // Genre ids differ between movies and TV, so switching type clears the genre filter.
+        // Genre ids differ between media types, so switching type clears the genre filter.
         onChange={(t) => router.setParams({ type: t, genre: undefined })}
       />
       <GenreFilter
@@ -72,7 +80,7 @@ export default function Discover() {
         selected={genre?.id ?? null}
         onSelect={(id) => router.setParams({ genre: id === null ? undefined : String(id) })}
       />
-      {health.data?.providers.tmdb === "demo" && <Muted>Demo catalog: add a TMDB key to unlock every movie and show.</Muted>}
+      {type !== "book" && health.data?.providers.tmdb === "demo" && <Muted>Demo catalog: add a TMDB key to unlock every movie and show.</Muted>}
       <ErrorText error={genres.error} />
 
       {params.genre && genres.isLoading ? (
@@ -85,8 +93,12 @@ export default function Discover() {
         <AllSections type={type} />
       )}
 
-      {/* Required by TMDB's API terms wherever their data is shown. */}
-      <Muted>This product uses the TMDB API but is not endorsed or certified by TMDB.</Muted>
+      {/* TMDB's API terms require this wherever their data is shown; Open Library asks for credit. */}
+      <Muted>
+        {type === "book"
+          ? "Book data and covers from Open Library."
+          : "This product uses the TMDB API but is not endorsed or certified by TMDB."}
+      </Muted>
     </Screen>
   );
 }
@@ -124,7 +136,7 @@ function SearchResults({ type, query, genre }: { type: MediaType; query: string;
     return genre && all.length ? (
       <Empty title={`No ${genre.name.toLowerCase()} matches`} body={`${all.length} other result${all.length === 1 ? "" : "s"} outside this genre. Tap All to see them.`} />
     ) : (
-      <Empty title="No matches" body="Try another title." />
+      <Empty title="No matches" body={type === "book" ? "Try another title or author." : "Try another title."} />
     );
   }
   return (
@@ -160,7 +172,7 @@ function GenreSections({ type, genre }: { type: MediaType; genre: GenreSummary }
   const r = recs.data;
   if (!r) return null;
   const name = genre.name.toLowerCase();
-  const noun = type === "movie" ? "movies" : "shows";
+  const noun = type === "movie" ? "movies" : type === "tv" ? "shows" : "books";
   const empty = !r.forYou.length && !r.trending.length && !r.community.length && !r.acclaimed.length && !r.becauseYouLoved;
 
   return (
@@ -180,7 +192,13 @@ function GenreSections({ type, genre }: { type: MediaType; genre: GenreSummary }
       {r.becauseYouLoved && <Section title={`Because you loved ${r.becauseYouLoved.title.name}`} items={r.becauseYouLoved.results} />}
       <Section title={`Encore's favourite ${name} ${noun}`} items={r.community} badgeFor={avgBadge} />
       <Section
-        title={r.acclaimed.some((t) => t.voteAverage !== null) ? "Critically acclaimed" : `${genre.name} essentials`}
+        title={
+          type === "book"
+            ? "Highest rated by readers"
+            : r.acclaimed.some((t) => t.voteAverage !== null)
+              ? "Critically acclaimed"
+              : `${genre.name} essentials`
+        }
         items={r.acclaimed}
         badgeFor={criticBadge}
       />

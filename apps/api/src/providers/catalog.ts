@@ -10,13 +10,14 @@ import {
   type WatchProviders,
 } from "@encore/shared";
 import { env } from "../env";
+import { openLibraryCatalog } from "./openlibrary";
 import { seedCatalog } from "./seed-catalog";
 import { tmdbCatalog } from "./tmdb";
 
 export interface CatalogProvider {
   kind: "live" | "demo";
   /** Stored on cached titles so switching providers (demo → TMDB) refreshes them. */
-  source: "tmdb" | "demo";
+  source: "tmdb" | "demo" | "openlibrary";
   search(type: MediaType, query: string): Promise<SearchResult[]>;
   trending(type: MediaType): Promise<SearchResult[]>;
   /** Critically acclaimed titles in a genre, best first. */
@@ -37,7 +38,31 @@ export interface CatalogProvider {
   verify(): Promise<void>;
 }
 
-export const catalog: CatalogProvider = env.tmdbApiKey || env.tmdbReadToken ? tmdbCatalog : seedCatalog;
+/** Movies and TV: TMDB, or the demo catalog without a key. */
+const screenCatalog: CatalogProvider = env.tmdbApiKey || env.tmdbReadToken ? tmdbCatalog : seedCatalog;
+
+/** Which provider serves a media type: Open Library for books, the screen catalog for the rest. */
+export const providerFor = (type: MediaType): CatalogProvider => (type === "book" ? openLibraryCatalog : screenCatalog);
+
+/**
+ * One catalog for every media type. `kind` and `source` describe the movie and TV
+ * provider (books are always live); use providerFor(type).source per title.
+ */
+export const catalog: CatalogProvider = {
+  kind: screenCatalog.kind,
+  source: screenCatalog.source,
+  verify: () => screenCatalog.verify(),
+  search: (type, query) => providerFor(type).search(type, query),
+  trending: (type) => providerFor(type).trending(type),
+  topInGenre: (type, genreId) => providerFor(type).topInGenre(type, genreId),
+  popularInGenre: (type, genreId) => providerFor(type).popularInGenre(type, genreId),
+  similar: (type, tmdbId) => providerFor(type).similar(type, tmdbId),
+  details: (type, tmdbId) => providerFor(type).details(type, tmdbId),
+  watchProviders: (type, tmdbId) => providerFor(type).watchProviders(type, tmdbId),
+  regions: () => screenCatalog.regions(),
+  streamingServices: (country) => screenCatalog.streamingServices(country),
+  season: (tvId, season) => screenCatalog.season(tvId, season),
+};
 
 export async function checkCatalog() {
   if (catalog.kind === "demo") {
@@ -71,6 +96,8 @@ async function warmCatalog() {
   const jobs: (() => Promise<unknown>)[] = [];
   for (const type of MEDIA_TYPES) {
     jobs.push(() => catalog.trending(type));
+    // Book genre lists load on first visit instead, to go easy on Open Library.
+    if (type === "book") continue;
     for (const g of genresFor(type)) jobs.push(() => catalog.topInGenre(type, g.id));
   }
   let failed = 0;

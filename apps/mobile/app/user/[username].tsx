@@ -25,10 +25,11 @@ export function ProfileBody({ username }: { username: string }) {
       </Screen>
     );
   }
-  const { user, stats, topMovies, topShows, recentLiveShows, relationship, canView } = data;
+  const { user, stats, topMovies, topShows, topBooks, recentLiveShows, relationship, canView } = data;
   const statItems = [
     ["Movies", stats.movies],
     ["Series", stats.series],
+    ["Books", stats.books],
     ["Live", stats.liveShows],
     ["Acts", stats.performers],
     ["Cities", stats.cities],
@@ -62,6 +63,8 @@ export function ProfileBody({ username }: { username: string }) {
           {topMovies.length ? topMovies.map((e, i) => <EntryRow key={e.id} entry={e} rank={i + 1} />) : <Empty title="No movies ranked yet" />}
           <Text style={{ color: colors.text, fontWeight: "800" }}>Top series</Text>
           {topShows.length ? topShows.map((e, i) => <EntryRow key={e.id} entry={e} rank={i + 1} />) : <Empty title="No series ranked yet" />}
+          <Text style={{ color: colors.text, fontWeight: "800" }}>Top books</Text>
+          {topBooks.length ? topBooks.map((e, i) => <EntryRow key={e.id} entry={e} rank={i + 1} />) : <Empty title="No books ranked yet" />}
           <Text style={{ color: colors.text, fontWeight: "800" }}>Recent live shows</Text>
           {recentLiveShows.length ? recentLiveShows.map((s) => <LiveShowRow key={s.id} show={s} owner={relationship === "self" ? undefined : user.username} />) : <Empty title="No live shows yet" />}
         </>

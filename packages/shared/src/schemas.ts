@@ -200,6 +200,7 @@ const watchNote = optionalText(500);
 export const addWatchlistSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("movie"), tmdbId: z.number().int().positive(), note: watchNote }),
   z.object({ kind: z.literal("tv"), tmdbId: z.number().int().positive(), note: watchNote }),
+  z.object({ kind: z.literal("book"), tmdbId: z.number().int().positive(), note: watchNote }),
   z.object({ kind: z.literal("performer"), performer: performerRefSchema, note: watchNote }),
   z.object({
     kind: z.literal("festival"),

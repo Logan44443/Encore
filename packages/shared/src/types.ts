@@ -118,12 +118,18 @@ export interface AuthResponse {
   user: User;
 }
 
+/**
+ * A movie, show or book. `tmdbId` is the catalog id: TMDB's for movies and TV,
+ * the number in the Open Library work id for books (OL45804W → 45804).
+ */
 export interface TitleSummary {
   tmdbId: number;
   mediaType: MediaType;
   name: string;
   year: number | null;
   posterUrl: string | null;
+  /** Books only: the author(s), e.g. "Andy Weir". */
+  author?: string | null;
 }
 
 export interface SearchResult extends TitleSummary {
@@ -225,6 +231,8 @@ export interface Title extends TitleSummary {
   backdropUrl: string | null;
   genres: Genre[];
   seasons: SeasonSummary[];
+  /** Books only. */
+  pageCount?: number | null;
 }
 
 export interface Episode {
@@ -454,6 +462,7 @@ export interface WatchlistItem {
 export interface ProfileStats {
   movies: number;
   series: number;
+  books: number;
   liveShows: number;
   performers: number;
   cities: number;
@@ -471,11 +480,14 @@ export interface Profile {
   stats: ProfileStats;
   topMovies: Entry[];
   topShows: Entry[];
+  topBooks: Entry[];
   recentLiveShows: LiveShow[];
 }
 
 export interface ProviderStatus {
   tmdb: "live" | "demo";
+  /** Google Books fills in missing book covers and blurbs when its key is set. */
+  googleBooks: boolean;
   setlistFm: boolean;
 }
 

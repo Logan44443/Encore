@@ -172,7 +172,7 @@ function AddPanel({ tab }: { tab: Tab }) {
   );
 }
 
-const TAB_ICON: Record<WatchlistKind, typeof FilmIcon> = { movie: FilmIcon, tv: TvIcon, performer: TicketIcon, festival: CalendarIcon };
+const TAB_ICON: Record<WatchlistKind, typeof FilmIcon> = { movie: FilmIcon, tv: TvIcon, book: FilmIcon, performer: TicketIcon, festival: CalendarIcon };
 
 function Watchlist() {
   const params = useSearchParams();

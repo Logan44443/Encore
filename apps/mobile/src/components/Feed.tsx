@@ -83,7 +83,7 @@ export function FeedCard({ item, width = 132, onDismiss }: { item: FeedItem; wid
         <View>
           <Poster uri={title.posterUrl} name={title.name} width={width} />
           <View style={styles.type}>
-            <Text style={styles.typeText}>{title.mediaType === "tv" ? "TV" : "Film"}</Text>
+            <Text style={styles.typeText}>{title.mediaType === "tv" ? "TV" : title.mediaType === "book" ? "Book" : "Film"}</Text>
           </View>
         </View>
         <Text style={styles.name} numberOfLines={1}>
