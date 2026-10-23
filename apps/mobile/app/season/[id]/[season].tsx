@@ -1,4 +1,4 @@
-import { tierForScore, type EpisodeEntry } from "@encore/shared";
+import type { EpisodeEntry } from "@encore/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -9,7 +9,7 @@ import { SeasonSheet } from "@/components/SeasonRank";
 import { sourceNote } from "@/components/TvRows";
 import { AuthGate, Button, ErrorText, H1, Loading, Muted, ScoreBadge, Screen, SectionTitle, showMenu } from "@/components/ui";
 import { formatDate } from "@/format";
-import { colors, tierColor } from "@/theme";
+import { colors } from "@/theme";
 import { invalidateTv, seasonName } from "@/tv";
 
 function Season() {
@@ -77,7 +77,7 @@ function Season() {
       <View style={styles.card}>
         {score ? (
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-            <ScoreBadge score={score.score} color={tierColor[score.entry && score.source === "ranked" ? score.entry.tier : tierForScore(score.score)]} size={64} />
+            <ScoreBadge score={score.score} size={64} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={styles.cardTitle}>
                 {score.source === "ranked" ? "Your ranking of this season" : sourceNote(score.rankedEpisodes, "episode")}
@@ -160,7 +160,7 @@ function Season() {
               {episode?.airDate ? <Text style={styles.meta}>{formatDate(episode.airDate)}</Text> : null}
             </View>
             {entry ? (
-              <ScoreBadge score={entry.score} color={tierColor[entry.tier]} />
+              <ScoreBadge score={entry.score} />
             ) : selected ? (
               <Text style={[styles.tick, ticked && { color: colors.brand }]}>{ticked ? "✓" : "○"}</Text>
             ) : (

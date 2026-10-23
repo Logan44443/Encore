@@ -5,7 +5,7 @@ import { api } from "@/api";
 import { EntryRow } from "@/components/EntryRow";
 import { Poster } from "@/components/Poster";
 import { AuthGate, Card, Empty, ErrorText, H1, Loading, Muted, Screen, SectionTitle } from "@/components/ui";
-import { colors } from "@/theme";
+import { colors, scoreColor } from "@/theme";
 
 export default function CompareScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
@@ -63,8 +63,8 @@ function Compare({ username }: { username: string }) {
               <Text style={styles.name} numberOfLines={1}>
                 {b.title.name}
               </Text>
-              <Text style={styles.score}>{b.mine.toFixed(1)}</Text>
-              <Text style={[styles.score, { color: colors.brand }]}>{b.theirs.toFixed(1)}</Text>
+              <Text style={[styles.score, { color: scoreColor(b.mine) }]}>{b.mine.toFixed(1)}</Text>
+              <Text style={[styles.score, { color: scoreColor(b.theirs) }]}>{b.theirs.toFixed(1)}</Text>
             </Pressable>
           ))}
         </>

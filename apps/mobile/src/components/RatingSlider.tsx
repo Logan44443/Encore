@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "../theme";
+import { colors, scoreColor } from "../theme";
 
 const STEPS = 20;
 
@@ -49,7 +49,7 @@ export function RatingSlider({
         <Pressable onPress={() => step(-0.5)} style={styles.nudge} hitSlop={8}>
           <Text style={styles.nudgeLabel}>−</Text>
         </Pressable>
-        <Text style={[styles.value, value === null && { color: invalid ? colors.disliked : colors.muted }]}>
+        <Text style={[styles.value, { color: value === null ? (invalid ? colors.disliked : colors.muted) : scoreColor(value) }]}>
           {value === null ? "—" : value.toFixed(1)}
           <Text style={styles.outOf}> / 10</Text>
         </Text>
@@ -59,13 +59,13 @@ export function RatingSlider({
       </View>
       <View ref={track} style={styles.touch} {...pan.panHandlers}>
         <View style={[styles.bar, invalid && { backgroundColor: "rgba(239,68,68,0.35)" }]}>
-          <View style={[styles.fill, { width: `${pct}%` }]} />
+          <View style={[styles.fill, { width: `${pct}%`, backgroundColor: scoreColor(value) }]} />
         </View>
-        {value !== null && <View style={[styles.thumb, { left: `${pct}%` }]} />}
+        {value !== null && <View style={[styles.thumb, { left: `${pct}%`, borderColor: scoreColor(value) }]} />}
       </View>
       <View style={styles.ticks}>
         {Array.from({ length: 11 }, (_, n) => (
-          <Text key={n} style={[styles.tick, value !== null && Math.floor(value) === n && { color: colors.brand, fontWeight: "800" }]}>
+          <Text key={n} style={[styles.tick, value !== null && Math.floor(value) === n && { color: scoreColor(value), fontWeight: "800" }]}>
             {n}
           </Text>
         ))}

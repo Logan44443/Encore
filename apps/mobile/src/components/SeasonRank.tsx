@@ -249,7 +249,7 @@ export function SeasonRank({
             <Pressable style={styles.compareCard} onPress={() => answer("existing")}>
               <Text style={styles.compareKicker}>Already ranked</Text>
               <Text style={styles.compareName}>{seasonTitle(opponent.seasonNumber, opponent.name)}</Text>
-              <ScoreBadge score={opponent.score} color={tier ? tierColor[tier] : colors.brand} />
+              <ScoreBadge score={opponent.score} />
             </Pressable>
           </View>
           <Button label="Too close to call" tone="ghost" onPress={() => answer("tie")} />
