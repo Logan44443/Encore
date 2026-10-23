@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { api } from "../api";
 import { doneVerb } from "../format";
-import { colors, tierColor } from "../theme";
+import { colors, scoreColor } from "../theme";
 import { Avatar, Muted, ScoreBadge, SectionTitle, showMenu } from "./ui";
 
 /** "Friends": who ranked this title, their scores and reviews, and who wants to watch it. */
@@ -20,7 +20,7 @@ export function FriendsOnTitle({ mediaType, tmdbId }: { mediaType: MediaType; tm
     <View style={{ gap: 8 }}>
       <SectionTitle
         children="Friends"
-        action={data.average !== null ? <Text style={{ color: colors.brand, fontWeight: "800" }}>avg {data.average.toFixed(1)}</Text> : undefined}
+        action={data.average !== null ? <Text style={{ color: scoreColor(data.average), fontWeight: "800" }}>avg {data.average.toFixed(1)}</Text> : undefined}
       />
       {data.rankings.map((r) => (
         <FriendRankingRow key={r.entryId} ranking={r} mediaType={mediaType} />
@@ -52,7 +52,7 @@ function FriendRankingRow({ ranking: r, mediaType }: { ranking: FriendRanking; m
         </Text>
         {r.review ? <Text style={styles.review}>“{r.review}”</Text> : null}
       </View>
-      <ScoreBadge score={r.score} color={tierColor[r.tier]} />
+      <ScoreBadge score={r.score} />
       {r.review ? (
         <Pressable hitSlop={10} accessibilityLabel="More" onPress={() => showMenu(undefined, [{ label: "Report review", destructive: true, onPress: report }])}>
           <Ionicons name="ellipsis-vertical" color={colors.muted} size={16} />

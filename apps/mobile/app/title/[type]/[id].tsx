@@ -1,4 +1,4 @@
-import { MEDIA_TYPE_LABELS, tierForScore, type Entry, type Title } from "@encore/shared";
+import { MEDIA_TYPE_LABELS, type Entry, type Title } from "@encore/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -16,7 +16,7 @@ import { sourceNote } from "@/components/TvRows";
 import { Button, Chip, ErrorText, H1, Loading, Muted, ScoreBadge, Screen } from "@/components/ui";
 import { WhereToWatch } from "@/components/WhereToWatch";
 import { doneVerb, formatEpisode, parseMediaType } from "@/format";
-import { colors, tierColor } from "@/theme";
+import { colors } from "@/theme";
 import { invalidateTv, seasonName } from "@/tv";
 import { useToggleTitle } from "@/watchlist";
 
@@ -129,7 +129,7 @@ export default function TitleScreen() {
       )}
       {!myEntry && showScore && (
         <View style={{ flexDirection: "row", gap: 12, alignItems: "center", backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 14 }}>
-          <ScoreBadge score={showScore.score} color={tierColor[tierForScore(showScore.score)]} size={64} />
+          <ScoreBadge score={showScore.score} size={64} />
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={{ color: colors.text, fontWeight: "700" }}>Your score · {sourceNote(showScore.rankedSeasons, "season")}</Text>
             <Muted>Rank the show itself to set your own score and place it in your {showScore.genreName} list.</Muted>
@@ -166,7 +166,6 @@ export default function TitleScreen() {
           <Muted>Open a season to rank its episodes. A season's score fills in from its episodes until you rank the season itself.</Muted>
           {title.seasons.map((meta) => {
             const s = seasonScores.get(meta.seasonNumber);
-            const tier = s ? (s.source === "ranked" && s.entry ? s.entry.tier : tierForScore(s.score)) : null;
             return (
               <Pressable
                 key={meta.seasonNumber}
@@ -180,7 +179,7 @@ export default function TitleScreen() {
                     {s ? (s.source === "episodes" ? ` · ${sourceNote(s.rankedEpisodes, "episode").toLowerCase()}` : " · ranked") : ""}
                   </Muted>
                 </View>
-                {s && tier ? <ScoreBadge score={s.score} color={tierColor[tier]} /> : <Text style={{ color: colors.muted, fontSize: 18 }}>›</Text>}
+                {s ? <ScoreBadge score={s.score} /> : <Text style={{ color: colors.muted, fontSize: 18 }}>›</Text>}
               </Pressable>
             );
           })}
@@ -227,7 +226,7 @@ function EntryCard({
   return (
     <View style={{ gap: 10, backgroundColor: colors.panel, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 14 }}>
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-        <ScoreBadge score={entry.score} color={tierColor[entry.tier]} size={64} />
+        <ScoreBadge score={entry.score} size={64} />
         <View style={{ flex: 1 }}>
           <Muted>Your score in {entry.genreName}</Muted>
           {entry.watchedAt ? (

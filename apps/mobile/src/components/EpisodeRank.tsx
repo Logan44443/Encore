@@ -172,7 +172,7 @@ export function EpisodeRank({ tmdbId, queue, onFinished }: { tmdbId: number; que
               <Text style={styles.compareKicker}>Already ranked</Text>
               <Text style={styles.compareName}>{opponent.name}</Text>
               <Text style={styles.meta}>{episodeCode(opponent.seasonNumber, opponent.episodeNumber)}</Text>
-              <ScoreBadge score={opponent.score} color={tier ? tierColor[tier] : colors.brand} />
+              <ScoreBadge score={opponent.score} />
             </Pressable>
           </View>
           <Button label="Too close to call" tone="ghost" onPress={() => answer("tie")} />

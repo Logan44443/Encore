@@ -6,7 +6,7 @@ import { api } from "@/api";
 import { PerformerPhoto } from "@/components/PerformerPhoto";
 import { AuthGate, Button, Card, Empty, ErrorText, H1, Loading, Muted, Screen } from "@/components/ui";
 import { formatPlace, showPhoto, showTitle, supportLine } from "@/format";
-import { colors } from "@/theme";
+import { colors, scoreColor } from "@/theme";
 
 function LiveList() {
   const router = useRouter();
@@ -58,7 +58,7 @@ function LiveList() {
                     <Text style={{ color: colors.text, fontWeight: "800" }}>{showTitle(s)}</Text>
                     {supportLine(s) ? <Muted>{supportLine(s)}</Muted> : null}
                     {s.venue ? <Muted>{s.venue.name}{place ? ` · ${place}` : ""}</Muted> : null}
-                    {s.rating !== null && <Text style={{ color: colors.brand, fontWeight: "800" }}>{s.rating.toFixed(1)}</Text>}
+                    {s.rating !== null && <Text style={{ color: scoreColor(s.rating), fontWeight: "800" }}>{s.rating.toFixed(1)}</Text>}
                   </View>
                 </Pressable>
               );

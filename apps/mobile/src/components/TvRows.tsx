@@ -1,7 +1,7 @@
-import { tierForScore, type EpisodeEntry, type SeasonScore, type ShowScore } from "@encore/shared";
+import { type EpisodeEntry, type SeasonScore, type ShowScore } from "@encore/shared";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, tierColor } from "../theme";
+import { colors } from "../theme";
 import { episodeCode, seasonName } from "../tv";
 import { Poster } from "./Poster";
 import { ScoreBadge } from "./ui";
@@ -13,7 +13,6 @@ export function sourceNote(count: number, noun: "episode" | "season") {
 
 export function ShowScoreRow({ show, rank }: { show: ShowScore; rank?: number }) {
   const router = useRouter();
-  const tier = show.entry?.tier ?? tierForScore(show.score);
   return (
     <Pressable onPress={() => router.push(`/title/tv/${show.title.tmdbId}`)} style={styles.row}>
       {rank ? <Text style={styles.rank}>{rank}</Text> : null}
@@ -28,14 +27,13 @@ export function ShowScoreRow({ show, rank }: { show: ShowScore; rank?: number })
           {show.source === "seasons" ? ` · ${sourceNote(show.rankedSeasons, "season")}` : ""}
         </Text>
       </View>
-      <ScoreBadge score={show.score} color={tierColor[tier]} />
+      <ScoreBadge score={show.score} />
     </Pressable>
   );
 }
 
 export function SeasonScoreRow({ season, rank, showName = true }: { season: SeasonScore; rank?: number; showName?: boolean }) {
   const router = useRouter();
-  const tier = season.source === "ranked" && season.entry ? season.entry.tier : tierForScore(season.score);
   return (
     <Pressable onPress={() => router.push(`/season/${season.tmdbId}/${season.seasonNumber}`)} style={styles.row}>
       {rank ? <Text style={styles.rank}>{rank}</Text> : null}
@@ -53,7 +51,7 @@ export function SeasonScoreRow({ season, rank, showName = true }: { season: Seas
               : "Ranked"}
         </Text>
       </View>
-      <ScoreBadge score={season.score} color={tierColor[tier]} />
+      <ScoreBadge score={season.score} />
     </Pressable>
   );
 }
@@ -72,7 +70,7 @@ export function EpisodeScoreRow({ episode, rank, onPress }: { episode: EpisodeEn
           {episode.showName} · {episodeCode(episode.seasonNumber, episode.episodeNumber)}
         </Text>
       </View>
-      <ScoreBadge score={episode.score} color={tierColor[episode.tier]} />
+      <ScoreBadge score={episode.score} />
     </Pressable>
   );
 }
