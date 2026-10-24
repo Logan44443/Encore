@@ -9,6 +9,10 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
  */
 export default ({ config }: ConfigContext): ExpoConfig => {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
+  // eas.json ships a placeholder until the API is hosted; refuse to build an app that can't reach it.
+  if (process.env.EAS_BUILD_PROFILE && /REPLACE/.test(apiUrl)) {
+    throw new Error("Set EXPO_PUBLIC_API_URL in apps/mobile/eas.json to the hosted https API before building.");
+  }
   const release = apiUrl.startsWith("https://");
   if (!release) return config as ExpoConfig;
 
