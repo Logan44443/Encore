@@ -36,3 +36,23 @@ export async function passwordSignIn(email: string, password: string): Promise<S
   }
   return data.session;
 }
+
+/**
+ * Sets a new password as the signed-in person, with their own access token.
+ * Supabase then keeps this session and ends every other one; the admin API
+ * (updateUserById) would end this one too and sign the phone out.
+ */
+export async function changeOwnPassword(token: string, password: string) {
+  const res = await fetch(`${env.supabaseUrl}/auth/v1/user`, {
+    method: "PUT",
+    headers: { apikey: env.supabaseSecretKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (res.ok) return null;
+  const body = (await res.json().catch(() => ({}))) as { error_code?: string; code?: string; msg?: string; message?: string };
+  return {
+    status: res.status,
+    code: body.error_code ?? body.code,
+    message: body.msg ?? body.message ?? "Couldn't change the password. Try again.",
+  };
+}

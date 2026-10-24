@@ -15,7 +15,7 @@ import { requireAuth, type AuthVars } from "../lib/auth";
 import { mailer } from "../lib/mailer";
 import { assertAcceptableNames } from "../lib/moderation";
 import { RateLimiter, tooMany } from "../lib/rate-limit";
-import { passwordSignIn, supabaseAdmin } from "../lib/supabase";
+import { changeOwnPassword, passwordSignIn, supabaseAdmin } from "../lib/supabase";
 import { findAccount, loadUser, usernameIs } from "../lib/users";
 import { validate } from "../lib/validate";
 
@@ -49,7 +49,10 @@ function notify(to: string, subject: string, lines: string[]) {
 function authFailure(error: { message: string; code?: string; status?: number }): never {
   if (error.code === "email_exists") throw new HTTPException(409, { message: "Email already registered" });
   if (error.code === "weak_password" || error.code === "same_password") throw new HTTPException(400, { message: error.message });
-  throw error;
+  if (error.code === "reauthentication_needed") {
+    throw new HTTPException(400, { message: "For your security, sign out and back in, then change your password." });
+  }
+  throw error instanceof Error ? error : new Error(error.message);
 }
 
 export const accountRoutes = new Hono<AuthVars>()
@@ -101,8 +104,9 @@ export const accountRoutes = new Hono<AuthVars>()
     const userId = c.get("userId");
     const { currentPassword, newPassword } = c.req.valid("json");
     const current = await confirmPassword(userId, currentPassword);
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: newPassword });
+    const error = await changeOwnPassword(c.get("caller").token, newPassword);
     if (error) authFailure(error);
+    // Supabase already ends the other sessions; this makes sure of it.
     await supabaseAdmin.auth.admin.signOut(c.get("caller").token, "others");
     notify(current.email, "Your Encore password was changed", [
       `Hi ${current.profile.displayName},`,
