@@ -7,6 +7,7 @@ import { api } from "@/api";
 import { useAuth, useCountry } from "@/auth";
 import { AuthGate, Muted, Screen, SettingsGroup, SettingsRow } from "@/components/ui";
 import { errorMessage } from "@/format";
+import { contactSupport, SUPPORT_EMAIL } from "@/legal";
 import { countryName, flag } from "@/region";
 
 export default function SettingsScreen() {
@@ -69,8 +70,7 @@ function Settings() {
       <SettingsGroup title="Friends and privacy">
         <SettingsRow label="Friends" onPress={() => router.push("/friends")} />
         <SettingsRow label="Privacy" value={PROFILE_VISIBILITY_LABELS[user.privacy.profileVisibility]} onPress={() => router.push("/settings/privacy")} />
-        <SettingsRow label="Blocked accounts" onPress={() => router.push("/settings/blocked")} />
-        <SettingsRow label="Community guidelines" onPress={() => router.push("/guidelines")} last />
+        <SettingsRow label="Blocked accounts" onPress={() => router.push("/settings/blocked")} last />
       </SettingsGroup>
 
       <SettingsGroup title="Account">
@@ -99,6 +99,12 @@ function Settings() {
       <SettingsGroup title="Your data">
         <SettingsRow label="Import from Letterboxd" onPress={() => router.push("/import-letterboxd")} />
         <SettingsRow label="Import from Goodreads" onPress={() => router.push("/import-goodreads")} last />
+      </SettingsGroup>
+
+      <SettingsGroup title="About">
+        <SettingsRow label="Privacy policy" onPress={() => router.push("/privacy-policy")} />
+        <SettingsRow label="Community guidelines" onPress={() => router.push("/guidelines")} />
+        <SettingsRow label="Contact support" value={SUPPORT_EMAIL} onPress={() => contactSupport()} last />
       </SettingsGroup>
 
       <SettingsGroup>
