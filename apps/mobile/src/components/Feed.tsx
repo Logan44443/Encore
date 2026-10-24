@@ -1,4 +1,4 @@
-import type { Feed, FeedItem, FeedReason } from "@encore/shared";
+import type { Feed, FeedItem, FeedReason, MediaType } from "@encore/shared";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -8,11 +8,16 @@ import { api } from "../api";
 import { colors } from "../theme";
 import { Poster } from "./Poster";
 
+/** Prefix of both feeds' query keys, for invalidating them together. */
 export const FEED_KEY = ["feed"] as const;
+/** Movies and TV share one feed; books have their own. */
+export type FeedScope = "screen" | "book";
+export const scopeOf = (type: MediaType): FeedScope => (type === "book" ? "book" : "screen");
+const feedKey = (scope: FeedScope) => [...FEED_KEY, scope];
 const keyOf = (i: FeedItem) => `${i.title.mediaType}-${i.title.tmdbId}`;
 
-export function useFeed(enabled = true) {
-  return useQuery({ queryKey: FEED_KEY, queryFn: () => api.catalog.feed(), staleTime: 5 * 60_000, enabled });
+export function useFeed(scope: FeedScope = "screen", enabled = true) {
+  return useQuery({ queryKey: feedKey(scope), queryFn: () => api.catalog.feed(scope), staleTime: 5 * 60_000, enabled });
 }
 
 export function reasonText(reason: FeedReason): string {
@@ -41,22 +46,23 @@ function listNames(names: string[]): string {
  * "Not interested": removes the title from the cached feed right away and keeps
  * it around briefly so it can be undone.
  */
-export function useDismiss() {
+export function useDismiss(scope: FeedScope = "screen") {
   const queryClient = useQueryClient();
+  const key = feedKey(scope);
   const [hidden, setHidden] = useState<{ item: FeedItem; index: number } | null>(null);
 
   const setItems = (fn: (items: FeedItem[]) => FeedItem[]) =>
-    queryClient.setQueryData<Feed>(FEED_KEY, (feed) => (feed ? { ...feed, items: fn(feed.items) } : feed));
+    queryClient.setQueryData<Feed>(key, (feed) => (feed ? { ...feed, items: fn(feed.items) } : feed));
 
   const dismiss = useMutation({
     mutationFn: (item: FeedItem) =>
       api.catalog.dismiss({ mediaType: item.title.mediaType, tmdbId: item.title.tmdbId, genreIds: item.title.genreIds }),
     onMutate: (item) => {
-      const index = queryClient.getQueryData<Feed>(FEED_KEY)?.items.findIndex((i) => keyOf(i) === keyOf(item)) ?? 0;
+      const index = queryClient.getQueryData<Feed>(key)?.items.findIndex((i) => keyOf(i) === keyOf(item)) ?? 0;
       setItems((items) => items.filter((i) => keyOf(i) !== keyOf(item)));
       setHidden({ item, index });
     },
-    onError: () => queryClient.invalidateQueries({ queryKey: FEED_KEY }),
+    onError: () => queryClient.invalidateQueries({ queryKey: key }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["recommendations"] }),
   });
 
@@ -67,7 +73,7 @@ export function useDismiss() {
       setItems((items) => [...items.slice(0, index), item, ...items.slice(index)]);
       setHidden(null);
     },
-    onError: () => queryClient.invalidateQueries({ queryKey: FEED_KEY }),
+    onError: () => queryClient.invalidateQueries({ queryKey: key }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["recommendations"] }),
   });
 

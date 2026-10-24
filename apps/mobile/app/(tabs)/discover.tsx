@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { api } from "@/api";
 import { useAuth } from "@/auth";
-import { FeedCard, UndoBar, useDismiss, useFeed } from "@/components/Feed";
+import { FeedCard, scopeOf, UndoBar, useDismiss, useFeed } from "@/components/Feed";
 import { PosterRow } from "@/components/Poster";
 import { Chip, Empty, ErrorText, H1, Loading, Muted, Screen, SectionTitle, Segmented } from "@/components/ui";
 import { parseMediaType } from "@/format";
@@ -157,8 +157,7 @@ function AllSections({ type }: { type: MediaType }) {
     <>
       <ErrorText error={trending.error ?? topRated.error} />
       <Section title="Trending this week" items={trending.data?.results} badgeFor={recentBadge} width={92} />
-      {/* The feed covers movies and TV only; books get their picks under each genre. */}
-      {type !== "book" && <Recommended type={type} />}
+      <Recommended type={type} />
       <Section title="Top rated on Encore" items={topRated.data?.results} badgeFor={avgBadge} />
     </>
   );
@@ -168,8 +167,8 @@ function AllSections({ type }: { type: MediaType }) {
 function Recommended({ type }: { type: MediaType }) {
   const router = useRouter();
   const { user } = useAuth();
-  const feed = useFeed(!!user);
-  const { hidden, dismiss, undo } = useDismiss();
+  const feed = useFeed(scopeOf(type), !!user);
+  const { hidden, dismiss, undo } = useDismiss(scopeOf(type));
   if (!user || feed.isLoading) return null;
   if (feed.error) return <ErrorText error={feed.error} />;
   const items = (feed.data?.items ?? []).filter((i) => i.title.mediaType === type).slice(0, 12);
@@ -177,7 +176,7 @@ function Recommended({ type }: { type: MediaType }) {
   return (
     <View style={{ gap: 8 }}>
       <SectionTitle
-        children={type === "tv" ? "Recommended shows" : "Recommended movies"}
+        children={`Recommended ${type === "tv" ? "shows" : type === "book" ? "books" : "movies"}`}
         action={
           <Pressable onPress={() => router.push(`/recommended?type=${type}`)} hitSlop={8}>
             <Text style={styles.link}>See all</Text>
@@ -197,7 +196,7 @@ function Recommended({ type }: { type: MediaType }) {
 
 function GenreSections({ type, genre }: { type: MediaType; genre: GenreSummary }) {
   const { user } = useAuth();
-  const { hidden, dismiss, undo } = useDismiss();
+  const { hidden, dismiss, undo } = useDismiss(scopeOf(type));
   const recs = useQuery({
     queryKey: ["recommendations", type, genre.id, user?.id],
     queryFn: () => api.catalog.recommendations(type, genre.id),

@@ -50,7 +50,7 @@ export const catalogRoutes = new Hono<OptionalAuthVars>()
       const userId = c.get("userId");
       const [recs, feed] = await Promise.all([
         genreRecommendations(type, genreId, userId),
-        userId ? getFeed(userId) : null,
+        userId ? getFeed(userId, type === "book" ? "book" : "screen") : null,
       ]);
       const forYou = (feed?.personalized ? feed.items : []).filter(
         (i) => i.title.mediaType === type && i.title.genreIds.includes(genreId),
@@ -59,7 +59,9 @@ export const catalogRoutes = new Hono<OptionalAuthVars>()
     },
   )
 
-  .get("/feed", requireAuth, async (c) => c.json(await getFeed(c.get("userId")!)))
+  .get("/feed", requireAuth, validate("query", z.object({ scope: z.enum(["screen", "book"]).default("screen") })), async (c) =>
+    c.json(await getFeed(c.get("userId")!, c.req.valid("query").scope)),
+  )
 
   .post("/feed/dismiss", requireAuth, validate("json", dismissTitleSchema), async (c) => {
     await dismissTitle(c.get("userId")!, c.req.valid("json"));
