@@ -2,12 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import type { ComponentProps } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { api } from "@/api";
 import { useAuth } from "@/auth";
 import { ActivityRow } from "@/components/Activity";
 import { EntryRow, LiveShowRow } from "@/components/EntryRow";
-import { FeedCard, UndoBar, useDismiss, useFeed } from "@/components/Feed";
 import { Button, Card, Empty, ErrorText, H1, Loading, Muted, Screen, SectionTitle } from "@/components/ui";
 import { useFriends } from "@/friends";
 import { colors } from "@/theme";
@@ -75,8 +74,6 @@ function Dashboard({ name }: { name: string }) {
       )}
 
       <FriendsActivity />
-
-      <Recommended />
     </Screen>
   );
 }
@@ -108,34 +105,6 @@ function FriendsActivity() {
         items.map((item) => <ActivityRow key={item.kind === "entry" ? `e:${item.entry.id}` : `s:${item.show.id}`} item={item} />)
       ) : (
         <Empty title="Nothing from friends yet" body="When friends rank something or log a show, it shows up here." />
-      )}
-    </>
-  );
-}
-
-function Recommended() {
-  const router = useRouter();
-  const feed = useFeed();
-  const { hidden, dismiss, undo } = useDismiss();
-  const items = feed.data?.items.slice(0, 12) ?? [];
-
-  return (
-    <>
-      <SectionTitle children="Recommended for you" action={<LinkText label="See all" onPress={() => router.push("/recommended")} />} />
-      {feed.data && !feed.data.personalized ? <Muted>Rank a few titles you liked and this fills with picks just for you.</Muted> : null}
-      {hidden ? <UndoBar name={hidden.item.title.name} onUndo={undo} /> : null}
-      {feed.isLoading ? (
-        <Loading />
-      ) : feed.error ? (
-        <ErrorText error={feed.error} />
-      ) : items.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 8 }}>
-          {items.map((item) => (
-            <FeedCard key={`${item.title.mediaType}-${item.title.tmdbId}`} item={item} onDismiss={() => dismiss(item)} />
-          ))}
-        </ScrollView>
-      ) : (
-        <Empty title="You're all caught up" body="Rank more titles for fresh picks." />
       )}
     </>
   );

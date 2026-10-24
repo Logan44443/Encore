@@ -74,8 +74,10 @@ export function PosterRow({
   items,
   badgeFor,
   horizontal,
+  width,
 }: {
   items: (SearchResult | DiscoverResult)[];
+  width?: number;
   badgeFor?: (item: SearchResult | DiscoverResult) => string | undefined;
   /** One swipeable row instead of a wrapping grid. */
   horizontal?: boolean;
@@ -84,7 +86,7 @@ export function PosterRow({
     return (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.carousel}>
         {items.map((item) => (
-          <TitleCard key={`${item.mediaType}-${item.tmdbId}`} item={item} badge={badgeFor?.(item)} />
+          <TitleCard key={`${item.mediaType}-${item.tmdbId}`} item={item} width={width} badge={badgeFor?.(item)} />
         ))}
       </ScrollView>
     );
@@ -92,7 +94,7 @@ export function PosterRow({
   return (
     <View style={styles.grid}>
       {items.map((item) => (
-        <TitleCard key={`${item.mediaType}-${item.tmdbId}`} item={item} badge={badgeFor?.(item)} />
+        <TitleCard key={`${item.mediaType}-${item.tmdbId}`} item={item} width={width} badge={badgeFor?.(item)} />
       ))}
     </View>
   );

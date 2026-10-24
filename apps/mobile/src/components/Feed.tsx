@@ -1,4 +1,5 @@
 import type { Feed, FeedItem, FeedReason } from "@encore/shared";
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -10,8 +11,8 @@ import { Poster } from "./Poster";
 export const FEED_KEY = ["feed"] as const;
 const keyOf = (i: FeedItem) => `${i.title.mediaType}-${i.title.tmdbId}`;
 
-export function useFeed() {
-  return useQuery({ queryKey: FEED_KEY, queryFn: () => api.catalog.feed(), staleTime: 5 * 60_000 });
+export function useFeed(enabled = true) {
+  return useQuery({ queryKey: FEED_KEY, queryFn: () => api.catalog.feed(), staleTime: 5 * 60_000, enabled });
 }
 
 export function reasonText(reason: FeedReason): string {
@@ -73,7 +74,18 @@ export function useDismiss() {
   return { hidden, dismiss: (item: FeedItem) => dismiss.mutate(item), undo: () => hidden && undo.mutate(hidden.item) };
 }
 
-export function FeedCard({ item, width = 132, onDismiss }: { item: FeedItem; width?: number; onDismiss: () => void }) {
+export function FeedCard({
+  item,
+  width = 132,
+  compact,
+  onDismiss,
+}: {
+  item: FeedItem;
+  width?: number;
+  /** Shorter card for rows that share the screen: one-line reason, dismiss as an X on the poster. */
+  compact?: boolean;
+  onDismiss: () => void;
+}) {
   const router = useRouter();
   const { title } = item;
   const community = title.community;
@@ -85,6 +97,11 @@ export function FeedCard({ item, width = 132, onDismiss }: { item: FeedItem; wid
           <View style={styles.type}>
             <Text style={styles.typeText}>{title.mediaType === "tv" ? "TV" : title.mediaType === "book" ? "Book" : "Film"}</Text>
           </View>
+          {compact && (
+            <Pressable onPress={onDismiss} hitSlop={8} style={styles.dismissX} accessibilityLabel={`Not interested in ${title.name}`}>
+              <Ionicons name="close" size={14} color="white" />
+            </Pressable>
+          )}
         </View>
         <Text style={styles.name} numberOfLines={1}>
           {title.name}
@@ -92,18 +109,20 @@ export function FeedCard({ item, width = 132, onDismiss }: { item: FeedItem; wid
         <Text style={styles.meta} numberOfLines={1}>
           {[title.year, community ? `${community.avgScore.toFixed(1)} avg` : null].filter(Boolean).join(" · ")}
         </Text>
-        <Text style={styles.reason} numberOfLines={2}>
+        <Text style={styles.reason} numberOfLines={compact ? 1 : 2}>
           {reasonText(item.reason)}
         </Text>
-        {item.onServices.length > 0 && (
+        {!compact && item.onServices.length > 0 && (
           <Text style={styles.onServices} numberOfLines={1}>
             On {item.onServices.map((s) => s.name).join(", ")}
           </Text>
         )}
       </Pressable>
-      <Pressable onPress={onDismiss} hitSlop={8} style={styles.dismiss}>
-        <Text style={styles.dismissText}>Not interested</Text>
-      </Pressable>
+      {!compact && (
+        <Pressable onPress={onDismiss} hitSlop={8} style={styles.dismiss}>
+          <Text style={styles.dismissText}>Not interested</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -127,6 +146,7 @@ const styles = StyleSheet.create({
   reason: { color: colors.brand, fontSize: 11, marginTop: 3, fontWeight: "600", lineHeight: 14 },
   onServices: { color: colors.liked, fontSize: 11, marginTop: 3, fontWeight: "700" },
   dismiss: { marginTop: 6, alignSelf: "flex-start" },
+  dismissX: { position: "absolute", top: 4, right: 4, backgroundColor: "rgba(11,11,15,0.85)", borderRadius: 999, width: 24, height: 24, alignItems: "center", justifyContent: "center" },
   dismissText: { color: colors.muted, fontSize: 11, textDecorationLine: "underline" },
   type: { position: "absolute", top: 6, left: 6, backgroundColor: "rgba(11,11,15,0.85)", borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
   typeText: { color: "white", fontSize: 10, fontWeight: "800" },
