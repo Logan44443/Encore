@@ -5,7 +5,7 @@ import { HTTPException } from "hono/http-exception";
  * sign-up and on change. Deliberately short and unambiguous so ordinary names
  * never trip it; reports and blocks handle everything else.
  */
-const BLOCKED = [
+export const BLOCKED = [
   "nigger", "nigga", "faggot", "kike", "chink", "wetback", "tranny", "retard",
   "gook", "raghead", "towelhead", "beaner", "hitler",
 ];
@@ -32,7 +32,9 @@ export function isOffensiveName(text: string): boolean {
  * word by word, against a shorter list without words that are also everyday English
  * ("chink in the armour") or history.
  */
-const PROSE_BLOCKED = BLOCKED.filter((w) => w !== "hitler" && w !== "chink");
+/** Words also used in ordinary English or history, so only blocked in names. */
+export const NAME_ONLY = new Set(["hitler", "chink"]);
+const PROSE_BLOCKED = BLOCKED.filter((w) => !NAME_ONLY.has(w));
 const PROSE_PATTERNS = PROSE_BLOCKED.map(
   (w) => new RegExp(`^${(w.match(/(.)\1*/g) ?? []).map((run) => `${run}+`).join("")}[sz]?$`),
 );

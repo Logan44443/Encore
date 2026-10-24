@@ -1,1 +1,0 @@
-ALTER TABLE "users" ADD COLUMN "share_watchlist" boolean DEFAULT true NOT NULL;

@@ -16,7 +16,7 @@ import {
 import { and, asc, desc, eq, gt, ne, sql, type SQL } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { db, type DB } from "../db/client";
-import { titleEntries, titles } from "../db/schema";
+import { entryReviews, titleEntries, titles } from "../db/schema";
 import { resolveCompanions, withEntryCompanions, writeCompanions } from "./companions";
 import { getTitle, toTitleSummary } from "./titles";
 import { clearWatchedTitle } from "./watchlist-sync";
@@ -142,7 +142,7 @@ export const entryColumns = {
   tier: titleEntries.tier,
   genreId: titleEntries.genreId,
   score: titleEntries.score,
-  review: titleEntries.review,
+  review: entryReviews.review,
   favoriteEpisode: titleEntries.favoriteEpisode,
   leastFavoriteEpisode: titleEntries.leastFavoriteEpisode,
   watchedAt: titleEntries.watchedAt,
@@ -174,7 +174,35 @@ export function toEntry(r: EntryRow): Entry {
 }
 
 export function selectEntries(tx: Executor) {
-  return tx.select(entryColumns).from(titleEntries).innerJoin(titles, eq(titles.id, titleEntries.titleId));
+  return tx
+    .select(entryColumns)
+    .from(titleEntries)
+    .innerJoin(titles, eq(titles.id, titleEntries.titleId))
+    .leftJoin(entryReviews, eq(entryReviews.entryId, titleEntries.id));
+}
+
+/**
+ * Sets the review on an entry (reviews live in their own table so the database
+ * can hide them from people who may see the score). undefined leaves it alone;
+ * null or blank removes it. `onlyIfMissing` never overwrites one already written.
+ */
+export async function saveReview(
+  tx: Executor,
+  userId: string,
+  entryId: string,
+  review: string | null | undefined,
+  opts: { onlyIfMissing?: boolean } = {},
+) {
+  if (review === undefined) return;
+  const text = review?.trim();
+  if (!text) {
+    if (!opts.onlyIfMissing) await tx.delete(entryReviews).where(eq(entryReviews.entryId, entryId));
+    return;
+  }
+  const insert = tx.insert(entryReviews).values({ entryId, userId, review: text });
+  await (opts.onlyIfMissing
+    ? insert.onConflictDoNothing()
+    : insert.onConflictDoUpdate({ target: entryReviews.entryId, set: { review: text } }));
 }
 
 async function getEntryOrThrow(tx: Executor, userId: string, id: string): Promise<Entry> {
@@ -253,12 +281,12 @@ export async function createEntry(userId: string, input: CreateEntryInput): Prom
         position,
         score: 0,
         userScore,
-        review: input.review ?? null,
         favoriteEpisode: input.mediaType === "tv" ? (input.favoriteEpisode ?? null) : null,
         leastFavoriteEpisode: input.mediaType === "tv" ? (input.leastFavoriteEpisode ?? null) : null,
         watchedAt: input.watchedAt ?? null,
       })
       .returning({ id: titleEntries.id });
+    await saveReview(tx, userId, inserted.id, input.review);
     await recomputeScores(tx, key);
     await clearWatchedTitle(tx, userId, title.id);
     return withRank(tx, userId, await getEntryOrThrow(tx, userId, inserted.id));
@@ -296,19 +324,22 @@ export async function importRatedEntry(
       .orderBy(asc(titleEntries.position));
     const aboveEntryId = others.filter((o) => o.score >= input.score).at(-1)?.id ?? null;
     const position = await positionFor(tx, key, aboveEntryId);
-    await tx.insert(titleEntries).values({
-      userId,
-      titleId: title.id,
-      mediaType: title.mediaType,
-      genreId,
-      tier: input.tier,
-      position,
-      score: 0,
-      userScore: input.score,
-      review: input.review,
-      watchedAt: input.watchedAt,
-      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
-    });
+    const [inserted] = await tx
+      .insert(titleEntries)
+      .values({
+        userId,
+        titleId: title.id,
+        mediaType: title.mediaType,
+        genreId,
+        tier: input.tier,
+        position,
+        score: 0,
+        userScore: input.score,
+        watchedAt: input.watchedAt,
+        ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+      })
+      .returning({ id: titleEntries.id });
+    await saveReview(tx, userId, inserted.id, input.review);
     await recomputeScores(tx, key);
     await clearWatchedTitle(tx, userId, title.id);
     return true;
@@ -342,14 +373,16 @@ export async function updateEntry(userId: string, id: string, input: UpdateEntry
   const isTv = current.title.mediaType === "tv";
   const changes = Object.fromEntries(
     Object.entries({
-      review: input.review,
       watchedAt: input.watchedAt,
       favoriteEpisode: isTv ? input.favoriteEpisode : undefined,
       leastFavoriteEpisode: isTv ? input.leastFavoriteEpisode : undefined,
     }).filter(([, v]) => v !== undefined),
   );
   const companions = input.companions ? await resolveCompanions(userId, input.companions) : null;
-  if (Object.keys(changes).length > 0) await db.update(titleEntries).set(changes).where(eq(titleEntries.id, id));
+  await db.transaction(async (tx) => {
+    if (Object.keys(changes).length > 0) await tx.update(titleEntries).set(changes).where(eq(titleEntries.id, id));
+    await saveReview(tx, userId, id, input.review);
+  });
   if (companions) await writeCompanions(userId, { entryId: id }, companions);
   const [entry] = await withEntryCompanions([await getEntryOrThrow(db, userId, id)], userId, userId);
   return entry;

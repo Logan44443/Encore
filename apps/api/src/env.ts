@@ -1,22 +1,23 @@
 const isProd = process.env.NODE_ENV === "production";
 
-function jwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (secret) {
-    if (isProd && secret.length < 32) throw new Error("JWT_SECRET must be at least 32 characters in production");
-    return secret;
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} must be set. On your Mac it goes in apps/api/.env; in production, in Render's Environment page.`);
   }
-  if (isProd) throw new Error("JWT_SECRET must be set in production");
-  console.warn("[env] JWT_SECRET not set — using an insecure development secret");
-  return "encore-dev-secret-change-me";
+  return value;
 }
 
 export const env = {
   isProd,
   port: Number(process.env.PORT ?? 4000),
-  databaseUrl: process.env.DATABASE_URL || null,
-  pgliteDir: process.env.PGLITE_DIR ?? "./.data/pglite",
-  jwtSecret: jwtSecret(),
+  /** Supabase's session pooler connection string, with the database password in it. */
+  databaseUrl: required("DATABASE_URL"),
+  databasePoolSize: Number(process.env.DATABASE_POOL_SIZE ?? 5),
+  /** https://<project>.supabase.co */
+  supabaseUrl: required("SUPABASE_URL").replace(/\/+$/, ""),
+  /** Server-only key (sb_secret_…): creates and deletes accounts. Never sent to the app. */
+  supabaseSecretKey: required("SUPABASE_SECRET_KEY"),
   /** Set when running behind a proxy/load balancer so rate limits key on the real client IP. */
   trustProxy: process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true",
   corsOrigins: (process.env.CORS_ORIGINS ?? "*").split(",").map((s) => s.trim()),

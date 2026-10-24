@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import type { z } from "zod";
 import { db, type DB } from "../db/client";
-import { liveShowPerformers, liveShows, liveShowSongs, performers, venues } from "../db/schema";
+import { liveShowNotes, liveShowPerformers, liveShows, liveShowSongNotes, liveShowSongs, performers, venues } from "../db/schema";
 import { performerPhoto } from "../providers/performer-photo";
 import { confirmTag, resolveCompanions, tagOnShow, withShowCompanions, writeCompanions } from "./companions";
 import { clearSeenLive } from "./watchlist-sync";
@@ -16,22 +16,42 @@ type VenueInput = NonNullable<CreateShow["venue"]>;
 
 const withRelations = {
   venue: true as const,
+  notes: true as const,
   lineup: {
     orderBy: [asc(liveShowPerformers.position)],
     with: {
       performer: true as const,
-      songs: { orderBy: [asc(liveShowSongs.position)] },
+      songs: { orderBy: [asc(liveShowSongs.position)], with: { note: true as const } },
     },
   },
 };
 
 type ShowRow = typeof liveShows.$inferSelect & {
   venue: typeof venues.$inferSelect | null;
+  notes: typeof liveShowNotes.$inferSelect | null;
   lineup: (typeof liveShowPerformers.$inferSelect & {
     performer: typeof performers.$inferSelect;
-    songs: (typeof liveShowSongs.$inferSelect)[];
+    songs: (typeof liveShowSongs.$inferSelect & { note: typeof liveShowSongNotes.$inferSelect | null })[];
   })[];
 };
+
+type NotesPatch = Partial<Pick<typeof liveShowNotes.$inferInsert, "liked" | "disliked" | "notes">>;
+
+/**
+ * What someone liked, disliked and noted about a show live in their own table
+ * (so the database can hide them from people who may only see the show).
+ * undefined leaves a field alone; the row goes once all three are empty.
+ */
+async function saveShowNotes(tx: Tx, userId: string, showId: string, patch: NotesPatch) {
+  const set = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as NotesPatch;
+  if (!Object.keys(set).length) return;
+  const [row] = await tx
+    .insert(liveShowNotes)
+    .values({ showId, userId, ...set })
+    .onConflictDoUpdate({ target: liveShowNotes.showId, set })
+    .returning();
+  if (!row.liked && !row.disliked && !row.notes) await tx.delete(liveShowNotes).where(eq(liveShowNotes.showId, showId));
+}
 
 function toLiveShow(r: ShowRow): LiveShow {
   return {
@@ -53,9 +73,9 @@ function toLiveShow(r: ShowRow): LiveShow {
     tourName: r.tourName,
     setlistFmId: r.setlistFmId,
     rating: r.rating,
-    liked: r.liked,
-    disliked: r.disliked,
-    notes: r.notes,
+    liked: r.notes?.liked ?? null,
+    disliked: r.notes?.disliked ?? null,
+    notes: r.notes?.notes ?? null,
     lineup: r.lineup.map((slot) => ({
       role: slot.role,
       performer: {
@@ -71,7 +91,7 @@ function toLiveShow(r: ShowRow): LiveShow {
         title: s.title,
         encore: s.encore,
         reaction: s.reaction,
-        note: s.note,
+        note: s.note?.note ?? null,
       })),
     })),
     createdAt: r.createdAt.toISOString(),
@@ -192,7 +212,7 @@ async function upsertVenue(tx: Tx, v: VenueInput): Promise<number> {
   return row.id;
 }
 
-async function replaceLineup(tx: Tx, showId: string, lineup: Slot[]): Promise<number[]> {
+async function replaceLineup(tx: Tx, userId: string, showId: string, lineup: Slot[]): Promise<number[]> {
   await tx.delete(liveShowPerformers).where(eq(liveShowPerformers.showId, showId));
   const hasHeadliner = lineup.some((s) => s.role === "headliner");
   const performerIds: number[] = [];
@@ -204,16 +224,23 @@ async function replaceLineup(tx: Tx, showId: string, lineup: Slot[]): Promise<nu
       .values({ showId, performerId, role: !hasHeadliner && i === 0 ? "headliner" : slot.role, position: i + 1 })
       .returning({ id: liveShowPerformers.id });
     if (slot.songs.length > 0) {
-      await tx.insert(liveShowSongs).values(
-        slot.songs.map((s, j) => ({
-          slotId: row.id,
-          position: j + 1,
-          title: s.title,
-          encore: s.encore,
-          reaction: s.reaction,
-          note: s.note ?? null,
-        })),
-      );
+      const songs = await tx
+        .insert(liveShowSongs)
+        .values(
+          slot.songs.map((s, j) => ({
+            slotId: row.id,
+            position: j + 1,
+            title: s.title,
+            encore: s.encore,
+            reaction: s.reaction,
+          })),
+        )
+        .returning({ id: liveShowSongs.id, position: liveShowSongs.position });
+      const notes = songs.flatMap((song) => {
+        const note = slot.songs[song.position - 1]?.note?.trim();
+        return note ? [{ songId: song.id, userId, note }] : [];
+      });
+      if (notes.length) await tx.insert(liveShowSongNotes).values(notes);
     }
   }
   return performerIds;
@@ -275,12 +302,10 @@ export async function createLiveShow(userId: string, input: CreateShow): Promise
         tourName: input.tourName ?? null,
         setlistFmId: input.setlistFmId ?? null,
         rating: input.rating ?? null,
-        liked: input.liked ?? null,
-        disliked: input.disliked ?? null,
-        notes: input.notes ?? null,
       })
       .returning({ id: liveShows.id });
-    const performerIds = await replaceLineup(tx, row.id, lineup);
+    await saveShowNotes(tx, userId, row.id, { liked: input.liked, disliked: input.disliked, notes: input.notes });
+    const performerIds = await replaceLineup(tx, userId, row.id, lineup);
     await clearSeenLive(tx, userId, performerIds, input.kind === "festival" ? (input.name ?? null) : null);
     return row.id;
   });
@@ -290,7 +315,7 @@ export async function createLiveShow(userId: string, input: CreateShow): Promise
 
 export async function updateLiveShow(userId: string, id: string, input: UpdateShow): Promise<LiveShow> {
   await getLiveShow(id, userId);
-  const { lineup, venue, companions: companionInput, ...fields } = input;
+  const { lineup, venue, companions: companionInput, liked, disliked, notes, ...fields } = input;
   const companions = companionInput ? await resolveCompanions(userId, companionInput) : null;
   const resolvedLineup = lineup ? await withImages(lineup) : undefined;
   await db.transaction(async (tx) => {
@@ -299,7 +324,8 @@ export async function updateLiveShow(userId: string, id: string, input: UpdateSh
     );
     if (venue !== undefined) changes.venueId = venue ? await upsertVenue(tx, venue) : null;
     if (Object.keys(changes).length > 0) await tx.update(liveShows).set(changes).where(eq(liveShows.id, id));
-    if (resolvedLineup) await clearSeenLive(tx, userId, await replaceLineup(tx, id, resolvedLineup), null);
+    await saveShowNotes(tx, userId, id, { liked, disliked, notes });
+    if (resolvedLineup) await clearSeenLive(tx, userId, await replaceLineup(tx, userId, id, resolvedLineup), null);
   });
   if (companions) await writeCompanions(userId, { showId: id }, companions);
   return getOwnLiveShow(id, userId);

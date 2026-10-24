@@ -20,7 +20,7 @@ Status as of 30 Sep 2026. Read this first, then `README.md` for the original web
 
 ```
 apps/
-  api/      Hono REST API on Node · Drizzle ORM · Postgres (embedded PGlite in dev) · port 4000
+  api/      Hono REST API on Node · Drizzle ORM · Supabase Postgres + Auth · port 4000
   web/      Next.js 16 App Router · Tailwind v4 · TanStack Query · installable PWA · port 3000
   mobile/   Expo SDK 57 · React Native 0.86 · expo-router · TanStack Query  (package @encore/mobile)
 packages/
@@ -48,8 +48,8 @@ npm run ios -w @encore/mobile              # starts Expo and opens the iOS simul
 Press `r` in the Expo terminal to reload after changes. The app runs in **Expo Go**, so there is no native build step; every native module used (secure-store, image, localization, router) ships with Expo Go.
 
 - **API address:** the app uses `EXPO_PUBLIC_API_URL` if set, otherwise the Expo dev server's host on port 4000. The simulator just works. A **physical iPhone** needs to be on the same Wi-Fi, and the Mac's firewall must allow port 4000. `NSAllowsLocalNetworking` is enabled in `app.json` for plain-HTTP local development.
-- **Database:** with `DATABASE_URL` empty, the API uses embedded Postgres stored in `apps/api/.data/pglite`. Delete that folder to reset all local data. `docker-compose.yml` runs a real Postgres if you want production-like testing.
-- **Migrations** in `apps/api/drizzle/` run automatically on API start. After editing `apps/api/src/db/schema.ts`, run `npm run db:generate -w @encore/api -- --name what_changed`.
+- **Database and sign-in:** Supabase (Postgres + Auth). The API needs `DATABASE_URL` (session pooler), `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; the app needs `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. See the two `.env.example` files. The old embedded database in `apps/api/.data` is no longer used; `apps/api/scripts/copy-from-pglite.ts` copies it into Supabase once.
+- **Migrations** in `apps/api/drizzle/` run automatically on API start outside production (production runs `npm run db:migrate` as Render's pre-deploy step). After editing `apps/api/src/db/schema.ts`, run `npm run db:generate -w @encore/api -- --name what_changed`. Privacy rules (RLS, grants, triggers) are hand-written in `0001_supabase_security.sql`; new tables need RLS and policies there too (`npm run db:generate -w @encore/api -- --custom --name rls_for_x`), and `npm run test:rls -w @encore/api` checks them.
 - **Without a TMDB key** the API serves a built-in 46-title demo catalog (no streaming data in demo mode).
 
 Useful checks:
@@ -65,16 +65,18 @@ curl localhost:4000/health                 # shows whether TMDB is live and setl
 
 | Variable | Needed | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | Production | Empty = embedded PGlite. Any Postgres URL works (Supabase, Neon, RDS). |
-| `JWT_SECRET` | Production | Dev falls back to an insecure fixed secret and logs a warning; production refuses to start without it. |
+| `DATABASE_URL` | Always | Supabase session pooler string (port 5432), password URL-encoded. |
+| `SUPABASE_URL` | Always | `https://<project-ref>.supabase.co` |
+| `SUPABASE_SECRET_KEY` | Always | `sb_secret_…`. Server only; creates, signs out and deletes accounts. |
+| `DATABASE_POOL_SIZE` | Optional | Defaults to 5. |
 | `TRUST_PROXY` | Behind a proxy | Set to `1` on Railway/Fly/Render so login rate limits use the real client IP from `X-Forwarded-For`. |
 | `TMDB_API_KEY` or `TMDB_READ_TOKEN` | Strongly recommended | Movies, TV, posters, similar titles, streaming availability. |
 | `SETLISTFM_API_KEY` | Optional | Setlist import. Currently **not set**. |
 | `MUSICBRAINZ_USER_AGENT` | Recommended | MusicBrainz requires an identifying agent: `AppName/version (contact)`. |
 | `CORS_ORIGINS` | Optional | Defaults to `*` (acceptable because auth is bearer tokens, not cookies). |
-| `PORT`, `PGLITE_DIR` | Optional | Defaults 4000 and `./.data/pglite`. |
+| `PORT` | Optional | Defaults to 4000. |
 
-Mobile: `EXPO_PUBLIC_API_URL` (optional locally, required once the API is hosted).
+Mobile (`apps/mobile/.env`): `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (always), `EXPO_PUBLIC_API_URL` (optional locally, required once the API is hosted).
 
 ## What was built, in order
 
@@ -182,7 +184,7 @@ Code: `apps/api/src/providers/setlistfm.ts` and `SetlistImporter` in `apps/mobil
 
 - **Third-party responses:** in-memory stale-while-revalidate plus a `cache_entries` table, so restarts start warm.
 - **Community charts:** 2-minute memory cache, cleared on every ranking change.
-- **Accounts:** scrypt password hashes and 30-day JWTs, with no refresh tokens yet.
+- **Accounts:** Supabase Auth since 2026-10-24 (before that, scrypt hashes and 30-day JWTs in the API).
 
 ## Data model changes made in this phase
 
@@ -294,25 +296,23 @@ The API already serves all of it. Porting is client work in `apps/web`, reusing 
 **Engineering**
 - **Testing:** there are no automated tests beyond 3 ranking unit tests in `packages/shared`. `apps/api/scripts/smoke.ts` predates the feed, seasons and country work.
 - **iOS verification:** the app was verified with typecheck and bundle export. UI testing was done by hand in the simulator by the product owner. Android is configured but untested.
-- **Migrations** run on every API boot. Before production, move them to a deploy step.
+- **Migrations** run on API boot in development only; production runs them as Render's pre-deploy step.
 - **Scaling:** the in-memory caches (charts, feed, third-party responses) assume a single API instance. Move them to Redis before scaling out.
-- **Auth:** no refresh tokens and no password reset. Login, sign-up and searches are rate-limited in memory (per IP, and per account for login). Sign in with Apple becomes mandatory for the App Store only if social logins are added.
+- **Auth:** Supabase Auth (access + refresh tokens, sessions revocable at once, password reset by emailed code). Login, sign-up and searches are also rate-limited in memory in the API. Sign in with Apple becomes mandatory for the App Store only if social logins are added.
 - **Deployment setup:** there's no CI, no error tracking (Sentry), and no staging environment.
 
 ## Production readiness (recommended path)
 
-The decision so far: **keep the Hono API and use Supabase (or Neon) only as managed Postgres.** Moving logic into Supabase's direct-to-database model would mean rewriting the transactional ranking, feed and third-party integrations, and weakening the single place where security checks live.
+The decision (2026-10-24): **Supabase for Postgres and Auth, with a slim Hono API kept for provider keys, ranking maths, the feed, imports and account changes.** Every table has Row Level Security, so screens can move to direct supabase-js reads and writes one at a time. The full plan is in the project files under `design/supabase/`.
 
-1. **Database:** create a Supabase or Neon project and set `DATABASE_URL`, using the pooled connection. Turn on backups, ideally point-in-time restore.
-2. **API hosting:** deploy the API to Railway, Fly.io or Render.
-   - Build and start with `npm run build -w @encore/api`, then `node dist/index.js`, run from `apps/api` so it finds `drizzle/`.
-   - Set `NODE_ENV=production`, a long random `JWT_SECRET`, the TMDB and setlist.fm keys, `MUSICBRAINZ_USER_AGENT` and `CORS_ORIGINS`.
-3. **Migrations:** run them as a release step instead of at boot.
+1. **Database:** a Supabase project in us-east-2 (Ohio). Use the session pooler string for `DATABASE_URL`. Move to the Pro plan before App Review for daily backups and no pausing.
+2. **API hosting:** `render.yaml` deploys to Render (Starter plan, Ohio). Set the secrets in Render's Environment page: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, the TMDB and setlist.fm keys and `MUSICBRAINZ_USER_AGENT`.
+3. **Migrations:** Render runs `npm run db:migrate -w @encore/api` before each deploy.
 4. **Website:** deploy `apps/web` to Vercel with `NEXT_PUBLIC_API_URL`.
 5. **iOS:**
    - Set `EXPO_PUBLIC_API_URL` to the hosted https API. `app.config.ts` then drops the plain-HTTP exceptions (iOS local networking, Android cleartext) automatically.
    - Set up EAS Build, build, and ship through TestFlight. This needs an Apple Developer account.
-6. **Hardening:** rate-limit auth, add refresh tokens and password reset, add Sentry to the API and both apps, and add CI that runs typecheck and tests on every push.
+6. **Hardening:** custom SMTP (Resend) for Supabase Auth emails, add Sentry to the API and both apps, and add CI that runs typecheck and tests on every push.
 7. **Legal:** add TMDB attribution; keep the JustWatch credit; get setlist.fm's permission if the app becomes commercial.
 
 ## Third-party terms to respect

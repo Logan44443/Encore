@@ -171,7 +171,7 @@ await api.watchlist.remove(remaining[0].id);
 assert.equal((await api.watchlist.list()).items.length, 0);
 
 const profile = await api.users.profile(`smoke_${suffix}`);
-assert.deepEqual(profile.stats, { movies: 4, series: 1, liveShows: 2, performers: 2, cities: 1 });
+assert.deepEqual(profile.stats, { movies: 4, series: 1, books: 0, liveShows: 2, performers: 2, cities: 1 });
 
 // Community discovery: this user's fresh logs should lead the trending chart
 const { results: trendingMovies } = await api.catalog.trending("movie");

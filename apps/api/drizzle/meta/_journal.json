@@ -5,134 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1790429063977,
-      "tag": "0000_init",
+      "when": 1792837287539,
+      "tag": "0000_supabase_tables",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1790430958018,
-      "tag": "0001_title_source",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1790431839855,
-      "tag": "0002_response_cache",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1790433255248,
-      "tag": "0003_watchlist",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1790675691198,
-      "tag": "0004_season_entries",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1790679416938,
-      "tag": "0005_dismissed_titles",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1790679977911,
-      "tag": "0006_user_country",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1790765160678,
-      "tag": "0007_password_reset",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1790767987395,
-      "tag": "0008_user_set_scores",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1790777377522,
-      "tag": "0009_user_services",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1790823783214,
-      "tag": "0010_username_case_insensitive",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1790844703249,
-      "tag": "0011_friends",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1790845323072,
-      "tag": "0012_watched_with",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1790845784862,
-      "tag": "0013_share_watchlist",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1792667075980,
-      "tag": "0014_episode_entries",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1792668446183,
-      "tag": "0015_letterboxd_imports",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1792716266656,
-      "tag": "0016_books",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1792716798821,
-      "tag": "0017_catalog_imports",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1792716806686,
-      "tag": "0018_drop_letterboxd_imports",
+      "when": 1792837294450,
+      "tag": "0001_supabase_security",
       "breakpoints": true
     }
   ]

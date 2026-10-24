@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { db } from "../db/client";
-import { friendRequests, friendships, titleEntries, users, watchCompanions } from "../db/schema";
+import { friendRequests, friendships, profiles, titleEntries, watchCompanions } from "../db/schema";
 import { requireAuth, type AuthVars } from "../lib/auth";
 import { RateLimiter, tooMany } from "../lib/rate-limit";
 import { blockedEitherWay, canViewContent, canViewReviews, notBlockedWith, relationshipBetween } from "../lib/social";
@@ -38,7 +38,7 @@ const searchByAccount = new RateLimiter(60, 60_000);
  * whom the viewer blocked) are a plain 404, the same as a username that doesn't exist.
  */
 async function findVisibleUser(viewerId: string, username: string) {
-  const user = await db.query.users.findFirst({ where: usernameIs(username) });
+  const user = await db.query.profiles.findFirst({ where: usernameIs(username) });
   if (!user || (user.id !== viewerId && (await blockedEitherWay(viewerId, user.id)))) {
     throw new HTTPException(404, { message: "User not found" });
   }
@@ -65,23 +65,23 @@ export const userRoutes = new Hono<AuthVars>()
     const q = c.req.valid("query").q.replace(/^@/, "");
     if (q.length < 2) return c.json({ users: [] as Person[] });
     const pattern = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-    const isFriend = sql`exists (select 1 from ${friendships} where ${friendships.userId} = ${viewerId} and ${friendships.friendId} = ${users.id})`;
+    const isFriend = sql`exists (select 1 from ${friendships} where ${friendships.userId} = ${viewerId} and ${friendships.friendId} = ${profiles.id})`;
     const rows = await db
-      .select({ id: users.id, username: users.username, displayName: users.displayName })
-      .from(users)
+      .select({ id: profiles.id, username: profiles.username, displayName: profiles.displayName })
+      .from(profiles)
       .where(
         and(
-          ne(users.id, viewerId),
-          or(ilike(users.username, `${pattern}%`), ilike(users.displayName, `%${pattern}%`)),
-          or(eq(users.searchable, true), isFriend),
-          notBlockedWith(viewerId, users.id),
+          ne(profiles.id, viewerId),
+          or(ilike(profiles.username, `${pattern}%`), ilike(profiles.displayName, `%${pattern}%`)),
+          or(eq(profiles.searchable, true), isFriend),
+          notBlockedWith(viewerId, profiles.id),
         ),
       )
       // Exact username first, then username prefix matches, then name matches.
       .orderBy(
-        sql`lower(${users.username}) = lower(${q}) desc`,
-        sql`lower(${users.username}) like lower(${`${pattern}%`}) desc`,
-        users.username,
+        sql`lower(${profiles.username}) = lower(${q}) desc`,
+        sql`lower(${profiles.username}) like lower(${`${pattern}%`}) desc`,
+        profiles.username,
       )
       .limit(20);
     if (!rows.length) return c.json({ users: [] as Person[] });

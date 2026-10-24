@@ -15,7 +15,7 @@ export default function ChangePasswordScreen() {
 }
 
 function ChangePassword() {
-  const { user, signIn } = useAuth();
+  const { user, setUser } = useAuth();
   const router = useRouter();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -30,8 +30,8 @@ function ChangePassword() {
     setPending(true);
     setError(null);
     try {
-      // The server signs out every other device and hands this one a fresh session.
-      await signIn(await api.account.changePassword({ currentPassword: current, newPassword: next }));
+      // The server signs out every other device; this one keeps its session.
+      setUser((await api.account.changePassword({ currentPassword: current, newPassword: next })).user);
       router.back();
       Alert.alert("Password changed", "You've been signed out on your other devices.");
     } catch (err) {

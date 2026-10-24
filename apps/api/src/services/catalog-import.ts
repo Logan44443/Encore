@@ -10,7 +10,7 @@ import { readZip, ZipError } from "../lib/zip";
 import { catalog } from "../providers/catalog";
 import { workForIsbn } from "../providers/openlibrary";
 import { invalidateDiscover } from "./discover";
-import { importRatedEntry } from "./entries";
+import { importRatedEntry, saveReview } from "./entries";
 import { invalidateFeed } from "./feed";
 import { getTitle, toTitleSummary } from "./titles";
 
@@ -338,13 +338,14 @@ async function applyItem(
 
   if (existing || film.rating !== null) {
     if (film.watchedAt || film.review) {
-      await db
-        .update(titleEntries)
-        .set({
-          watchedAt: sql`coalesce(${titleEntries.watchedAt}, ${film.watchedAt}::date)`,
-          review: sql`coalesce(${titleEntries.review}, ${film.review})`,
-        })
-        .where(and(eq(titleEntries.userId, userId), eq(titleEntries.titleId, title.id)));
+      await db.transaction(async (tx) => {
+        const [entry] = await tx
+          .update(titleEntries)
+          .set({ watchedAt: sql`coalesce(${titleEntries.watchedAt}, ${film.watchedAt}::date)` })
+          .where(and(eq(titleEntries.userId, userId), eq(titleEntries.titleId, title.id)))
+          .returning({ id: titleEntries.id });
+        if (entry) await saveReview(tx, userId, entry.id, film.review, { onlyIfMissing: true });
+      });
     }
     return { kind: "alreadyRanked" };
   }

@@ -10,20 +10,26 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "reports": "tsx --env-file-if-exists=.env scripts/reports.ts",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test src/**/*.test.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
+    "test:rls": "tsx scripts/rls-test.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "smoke:auth": "tsx scripts/auth-smoke.ts",
+    "db:copy-from-pglite": "tsx --env-file-if-exists=.env scripts/copy-from-pglite.ts",
+    "smoke:cleanup": "tsx --env-file-if-exists=.env scripts/delete-test-accounts.ts"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.8",
     "@encore/shared": "*",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
+    "@supabase/supabase-js": "^2.117.3",
     "drizzle-orm": "^0.45.3",
     "hono": "^4.13.9",
-    "jose": "^6.2.12",
     "postgres": "^3.4.9",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.28.2"
   }

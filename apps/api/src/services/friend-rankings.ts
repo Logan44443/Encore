@@ -10,7 +10,7 @@ import {
 } from "@encore/shared";
 import { and, desc, eq, inArray, lt, ne } from "drizzle-orm";
 import { db } from "../db/client";
-import { friendships, titleEntries, titles, users, watchlistItems } from "../db/schema";
+import { entryReviews, friendships, profiles, titleEntries, titles, watchlistItems } from "../db/schema";
 import { toPublicUser } from "../lib/users";
 import { withEntryCompanions, withShowCompanions } from "./companions";
 import { entryColumns, listEntries, toEntry } from "./entries";
@@ -22,15 +22,15 @@ type VisibleFriend = { id: string; username: string; displayName: string; shareR
 export async function visibleFriends(viewerId: string): Promise<VisibleFriend[]> {
   return db
     .select({
-      id: users.id,
-      username: users.username,
-      displayName: users.displayName,
-      shareReviews: users.shareReviews,
-      shareWatchlist: users.shareWatchlist,
+      id: profiles.id,
+      username: profiles.username,
+      displayName: profiles.displayName,
+      shareReviews: profiles.shareReviews,
+      shareWatchlist: profiles.shareWatchlist,
     })
     .from(friendships)
-    .innerJoin(users, eq(users.id, friendships.friendId))
-    .where(and(eq(friendships.userId, viewerId), ne(users.profileVisibility, "private")));
+    .innerJoin(profiles, eq(profiles.id, friendships.friendId))
+    .where(and(eq(friendships.userId, viewerId), ne(profiles.profileVisibility, "private")));
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -55,10 +55,11 @@ export async function friendsOnTitle(viewerId: string, mediaType: MediaType, tmd
         score: titleEntries.score,
         tier: titleEntries.tier,
         genreId: titleEntries.genreId,
-        review: titleEntries.review,
+        review: entryReviews.review,
         watchedAt: titleEntries.watchedAt,
       })
       .from(titleEntries)
+      .leftJoin(entryReviews, eq(entryReviews.entryId, titleEntries.id))
       .where(and(eq(titleEntries.titleId, title.id), inArray(titleEntries.userId, ids)))
       .orderBy(desc(titleEntries.score)),
     db
@@ -135,6 +136,7 @@ export async function friendActivity(viewerId: string, before: Date | null): Pro
       .select({ ...entryColumns, ownerId: titleEntries.userId })
       .from(titleEntries)
       .innerJoin(titles, eq(titles.id, titleEntries.titleId))
+      .leftJoin(entryReviews, eq(entryReviews.entryId, titleEntries.id))
       .where(and(inArray(titleEntries.userId, ids), before ? lt(titleEntries.createdAt, before) : undefined))
       .orderBy(desc(titleEntries.createdAt))
       .limit(ACTIVITY_PAGE),

@@ -12,7 +12,7 @@ import {
 } from "@encore/shared";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "../db/client";
-import { dismissedTitles, titleEntries, titles, users } from "../db/schema";
+import { dismissedTitles, titleEntries, titles, userSettings } from "../db/schema";
 import { TtlCache } from "../lib/cache";
 import { catalog } from "../providers/catalog";
 import { statsFor, topRated, trending } from "./discover";
@@ -80,7 +80,7 @@ async function buildFeed(userId: string, scope: FeedScope): Promise<Feed> {
     listEntries(userId, {}),
     db.select().from(dismissedTitles).where(eq(dismissedTitles.userId, userId)),
     listWatchlist(userId),
-    db.query.users.findFirst({ where: eq(users.id, userId), columns: { country: true, services: true } }),
+    db.query.userSettings.findFirst({ where: eq(userSettings.userId, userId), columns: { country: true, services: true } }),
   ]);
   // Movies and TV recommend each other; books only recommend books.
   const entries = allEntries.filter((e) => inScope(scope, e.title.mediaType));

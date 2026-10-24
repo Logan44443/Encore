@@ -6,7 +6,7 @@
  */
 import { asc, eq } from "drizzle-orm";
 import { database, db } from "../src/db/client";
-import { reports, users } from "../src/db/schema";
+import { profiles, reports } from "../src/db/schema";
 
 const [command, id, outcome] = process.argv.slice(2);
 
@@ -20,9 +20,9 @@ if (command === "resolve") {
   }
 } else {
   const rows = await db
-    .select({ report: reports, reporter: users.username })
+    .select({ report: reports, reporter: profiles.username })
     .from(reports)
-    .leftJoin(users, eq(users.id, reports.reporterId))
+    .leftJoin(profiles, eq(profiles.id, reports.reporterId))
     .where(eq(reports.status, "open"))
     .orderBy(asc(reports.createdAt));
   if (!rows.length) console.log("No open reports.");

@@ -113,8 +113,10 @@ export interface FriendRequest {
 /** What other people can see about a user. */
 export type PublicUser = Pick<User, "id" | "username" | "displayName">;
 
+/** A signed-in session: a short-lived Supabase access token, the refresh token that renews it, and the account. */
 export interface AuthResponse {
   token: string;
+  refreshToken: string;
   user: User;
 }
 

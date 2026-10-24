@@ -6,7 +6,6 @@ import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 import { env } from "./env";
 import { rateLimit } from "./lib/rate-limit";
-import { rejectRevokedSessions } from "./lib/sessions";
 import { catalog } from "./providers/catalog";
 import { setlistFmEnabled } from "./providers/setlistfm";
 import { accountRoutes } from "./routes/account";
@@ -33,7 +32,6 @@ export const app = new Hono()
   // Searches fan out to TMDB / MusicBrainz (which allows ~1 request/second in total), so cap them per IP.
   .use("/catalog/search", rateLimit(60, 60_000, "catalog-search"))
   .use("/music/*", rateLimit(40, 60_000, "music"))
-  .use(rejectRevokedSessions)
   .get("/", (c) =>
     c.json({
       name: "Encore API",
@@ -80,6 +78,12 @@ app.onError((err, c) => {
     case "22007":
     case "22008":
       return c.json({ error: "Invalid date" }, 400);
+    // The database's own checks (slur filter, username rules) say what's wrong in the detail.
+    case "P0001":
+    case "22023": {
+      const detail = (err as { detail?: unknown; cause?: { detail?: unknown } }).cause?.detail ?? (err as { detail?: unknown }).detail;
+      return c.json({ error: typeof detail === "string" && detail ? detail : "That isn't allowed on Encore." }, 400);
+    }
   }
   console.error(err);
   return c.json({ error: "Internal server error" }, 500);
