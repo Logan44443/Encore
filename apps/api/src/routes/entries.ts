@@ -12,6 +12,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireAuth, type AuthVars } from "../lib/auth";
+import { assertAcceptableText } from "../lib/moderation";
 import { validate } from "../lib/validate";
 import { withEntryCompanions } from "../services/companions";
 import { invalidateDiscover } from "../services/discover";
@@ -154,13 +155,15 @@ export const entryRoutes = new Hono<AuthVars>()
     async (c) => c.json(await tvRankings(c.get("userId"), c.req.valid("query").tmdbId)),
   )
 
-  .post("/", validate("json", createEntrySchema), async (c) =>
-    c.json(await createEntry(c.get("userId"), c.req.valid("json")), 201),
-  )
+  .post("/", validate("json", createEntrySchema), async (c) => {
+    assertAcceptableText(c.req.valid("json").review);
+    return c.json(await createEntry(c.get("userId"), c.req.valid("json")), 201);
+  })
 
-  .patch("/:id", idParam, validate("json", updateEntrySchema), async (c) =>
-    c.json({ entry: await updateEntry(c.get("userId"), c.req.valid("param").id, c.req.valid("json")) }),
-  )
+  .patch("/:id", idParam, validate("json", updateEntrySchema), async (c) => {
+    assertAcceptableText(c.req.valid("json").review);
+    return c.json({ entry: await updateEntry(c.get("userId"), c.req.valid("param").id, c.req.valid("json")) });
+  })
 
   .put("/:id/rank", idParam, validate("json", rerankEntrySchema), async (c) =>
     c.json(await rerankEntry(c.get("userId"), c.req.valid("param").id, c.req.valid("json"))),
