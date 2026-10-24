@@ -29,6 +29,7 @@ import type {
 import type { PasswordResetConfirmInput, PasswordResetRequestInput } from "./password-reset";
 import type {
   AuthResponse,
+  Credit,
   DiscoverResult,
   Entry,
   EntryResult,
@@ -252,6 +253,9 @@ export function createApiClient({
         request<{ setlists: SetlistSummary[]; enabled: boolean }>("GET", p(`/music/performers/${mbid}/setlists`), {
           query,
         }),
+      /** Credits for a show page's photo and setlist; either is null when not asked for or not ours. */
+      credits: (query: { photo?: string | null; setlist?: string | null }) =>
+        request<{ photo: Credit | null; setlist: Credit | null }>("GET", p("/music/credits"), { query }),
     },
 
     watchlist: {

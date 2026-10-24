@@ -384,6 +384,12 @@ export interface Performer {
   imageUrl: string | null;
 }
 
+/** Attribution a third-party source asks for, with where it links. */
+export interface Credit {
+  text: string;
+  url: string;
+}
+
 export interface Venue {
   name: string;
   city: string | null;

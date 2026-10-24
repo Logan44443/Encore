@@ -1,9 +1,10 @@
-import { ApiError } from "@encore/shared";
+import { ApiError, type Credit } from "@encore/shared";
 import { useRouter } from "expo-router";
 import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -85,6 +86,16 @@ export function H1({ children }: { children: React.ReactNode }) {
 
 export function Muted({ children }: { children: React.ReactNode }) {
   return <Text style={styles.muted}>{children}</Text>;
+}
+
+/** Small attribution line a source asks for (photo author and licence, setlist.fm); opens its page. */
+export function CreditLine({ credit }: { credit: Credit | null | undefined }) {
+  if (!credit) return null;
+  return (
+    <Text style={styles.credit} onPress={() => Linking.openURL(credit.url).catch(() => {})} accessibilityRole="link">
+      {credit.text}
+    </Text>
+  );
 }
 
 export function SectionTitle({ children, action }: { children: string; action?: React.ReactNode }) {
@@ -305,6 +316,7 @@ const styles = StyleSheet.create({
   empty: { borderWidth: 1, borderColor: colors.line, borderRadius: 16, padding: 20, backgroundColor: colors.panel, gap: 6 },
   emptyTitle: { color: colors.text, fontWeight: "700" },
   muted: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  credit: { color: colors.muted, fontSize: 11, textDecorationLine: "underline" },
   h1: { color: colors.text, fontSize: 28, fontWeight: "900", letterSpacing: -0.4 },
   h2: { color: colors.text, fontSize: 17, fontWeight: "800" },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
