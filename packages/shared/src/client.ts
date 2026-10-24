@@ -199,8 +199,8 @@ export function createApiClient({
       /** Streaming services available in a country, most popular first, for "My services". */
       services: (country: string) =>
         request<{ services: WatchProvider[] }>("GET", p("/catalog/services"), { query: { country } }),
-      /** Personal "Recommended for you" feed across movies and TV (signed in only). */
-      feed: () => request<Feed>("GET", p("/catalog/feed")),
+      /** Personal "Recommended for you" feed: movies and TV together, or books (signed in only). */
+      feed: (scope: "screen" | "book" = "screen") => request<Feed>("GET", p("/catalog/feed"), { query: { scope } }),
       /** "Not interested": hides the title and weakens similar picks. */
       dismiss: (body: DismissTitleInput) => request<null>("POST", p("/catalog/feed/dismiss"), { body }),
       undismiss: (query: { mediaType: MediaType; tmdbId: number }) =>

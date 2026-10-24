@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { RefreshControl, useWindowDimensions, View } from "react-native";
 import { FEED_KEY, FeedCard, UndoBar, useDismiss, useFeed } from "@/components/Feed";
+import { parseMediaType } from "@/format";
 import { AuthGate, Empty, ErrorText, Loading, Muted, Screen } from "@/components/ui";
 
 export default function Recommended() {
@@ -14,11 +15,13 @@ export default function Recommended() {
 }
 
 function FeedGrid() {
-  // Discover links here with ?type=movie or ?type=tv; Home-style links show both.
-  const { type } = useLocalSearchParams<{ type?: string }>();
-  const feed = useFeed();
+  // Discover links here with ?type=movie, tv or book; without one it shows movies and TV together.
+  const params = useLocalSearchParams<{ type?: string }>();
+  const type = params.type ? parseMediaType(params.type) : null;
+  const scope = type === "book" ? "book" : "screen";
+  const feed = useFeed(scope);
   const queryClient = useQueryClient();
-  const { hidden, dismiss, undo } = useDismiss();
+  const { hidden, dismiss, undo } = useDismiss(scope);
   const [refreshing, setRefreshing] = useState(false);
   const { width } = useWindowDimensions();
   const cardWidth = Math.floor((width - 16 * 2 - 12 * 2) / 3);
@@ -34,7 +37,7 @@ function FeedGrid() {
   if (feed.isLoading) return <Loading />;
   return (
     <Screen refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="white" />}>
-      {type === "movie" || type === "tv" ? <Stack.Screen options={{ title: type === "tv" ? "Recommended shows" : "Recommended movies" }} /> : null}
+      {type ? <Stack.Screen options={{ title: `Recommended ${type === "tv" ? "shows" : type === "book" ? "books" : "movies"}` }} /> : null}
       <Muted>
         {feed.data?.personalized
           ? "Picked from what you loved, what people with your taste rank highly, and your favourite genres."

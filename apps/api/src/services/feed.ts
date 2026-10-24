@@ -21,7 +21,8 @@ import { friendPicks } from "./friend-rankings";
 import { listWatchlist } from "./watchlist";
 
 /**
- * "Recommended for you": one ranked feed across movies and TV (books stay out of it).
+ * "Recommended for you": one ranked feed across movies and TV, and a separate one for
+ * books built the same way from your book rankings (no services step for books).
  *
  * Candidates come from five sources, each adding points:
  *   similar   — catalog "more like this" for your top liked titles   3 × seed score / 10
@@ -47,11 +48,17 @@ const SERVICE_CHECKS = 60;
 /** Streamable picks score 20% higher plus a flat 0.5, so they move up without crowding out great titles elsewhere. */
 const serviceBoost = (points: number) => points * 0.2 + 0.5;
 
-const cache = new TtlCache<Feed>(500);
+const cache = new TtlCache<Feed>(1000);
 const CACHE_MS = 15 * 60_000;
 
+/** "screen" is movies and TV together; "book" is books on their own. */
+export type FeedScope = "screen" | "book";
+const SCOPES: FeedScope[] = ["screen", "book"];
+const typesOf = (scope: FeedScope): MediaType[] => (scope === "book" ? ["book"] : ["movie", "tv"]);
+const inScope = (scope: FeedScope, type: MediaType) => (type === "book") === (scope === "book");
+
 export function invalidateFeed(userId?: string) {
-  if (userId) cache.delete(userId);
+  if (userId) for (const scope of SCOPES) cache.delete(`${userId}:${scope}`);
   else cache.clear();
 }
 
@@ -64,21 +71,21 @@ interface Candidate {
   best: { reason: FeedReason; points: number; group: string };
 }
 
-export function getFeed(userId: string): Promise<Feed> {
-  return cache.wrap(userId, CACHE_MS, () => buildFeed(userId));
+export function getFeed(userId: string, scope: FeedScope = "screen"): Promise<Feed> {
+  return cache.wrap(`${userId}:${scope}`, CACHE_MS, () => buildFeed(userId, scope));
 }
 
-async function buildFeed(userId: string): Promise<Feed> {
+async function buildFeed(userId: string, scope: FeedScope): Promise<Feed> {
   const [allEntries, dismissed, watchlist, user] = await Promise.all([
     listEntries(userId, {}),
     db.select().from(dismissedTitles).where(eq(dismissedTitles.userId, userId)),
     listWatchlist(userId),
     db.query.users.findFirst({ where: eq(users.id, userId), columns: { country: true, services: true } }),
   ]);
-  // The feed is what to watch next; books have their own picks on Discover.
-  const entries = allEntries.filter((e) => e.title.mediaType !== "book");
+  // Movies and TV recommend each other; books only recommend books.
+  const entries = allEntries.filter((e) => inScope(scope, e.title.mediaType));
   const mine: MyServices | null =
-    user?.country && user.services.length ? { country: user.country, ids: new Set(user.services) } : null;
+    scope === "screen" && user?.country && user.services.length ? { country: user.country, ids: new Set(user.services) } : null;
 
   const excluded = new Set<Key>([
     ...entries.map((e) => keyOf(e.title)),
@@ -87,7 +94,7 @@ async function buildFeed(userId: string): Promise<Feed> {
   const liked = entries.filter((e) => e.tier === "liked");
 
   if (liked.length < MIN_LIKED) {
-    return { items: await labelServices(await popularFeed(excluded), mine), personalized: false };
+    return { items: await labelServices(await popularFeed(excluded, scope), mine), personalized: false };
   }
 
   const affinity = genreAffinity(entries);
@@ -96,7 +103,7 @@ async function buildFeed(userId: string): Promise<Feed> {
 
   const add = (title: SearchResult, points: number, reason: FeedReason, group: string) => {
     const key = keyOf(title);
-    if (excluded.has(key) || title.mediaType === "book") return;
+    if (excluded.has(key) || !inScope(scope, title.mediaType)) return;
     const c = pool.get(key);
     if (!c) {
       pool.set(key, { title, points, best: { reason, points, group } });
@@ -165,7 +172,7 @@ async function buildFeed(userId: string): Promise<Feed> {
     return { ...c, points: c.points + fit + recent - 0.3 * Math.min(3, similarToDismissed) };
   });
 
-  const withStats = await annotate(scored.map((c) => c.title));
+  const withStats = await annotate(scored.map((c) => c.title), scope);
   const ranked = scored
     .map((c) => {
       const community = withStats.get(keyOf(c.title))?.community ?? null;
@@ -187,7 +194,7 @@ async function buildFeed(userId: string): Promise<Feed> {
   const items = mix(boosted);
   if (items.length < FEED_SIZE) {
     const have = new Set(items.map((i) => keyOf(i.title)));
-    const fill = (await popularFeed(new Set([...excluded, ...have]))).slice(0, FEED_SIZE - items.length);
+    const fill = (await popularFeed(new Set([...excluded, ...have]), scope)).slice(0, FEED_SIZE - items.length);
     items.push(...(await labelServices(fill, mine)));
   }
   return { items, personalized: true };
@@ -292,9 +299,9 @@ async function tastePicks(userId: string, liked: Entry[]) {
   return [...byTitle.values()].sort((a, b) => b.weight - a.weight).slice(0, 40);
 }
 
-async function annotate(list: SearchResult[]): Promise<Map<Key, DiscoverResult>> {
+async function annotate(list: SearchResult[], scope: FeedScope): Promise<Map<Key, DiscoverResult>> {
   const out = new Map<Key, DiscoverResult>();
-  for (const type of ["movie", "tv"] as const) {
+  for (const type of typesOf(scope)) {
     const ofType = list.filter((t) => t.mediaType === type);
     const stats = await statsFor(
       type,
@@ -375,15 +382,10 @@ async function labelServices(items: FeedItem[], mine: MyServices | null): Promis
   return items.map((i) => ({ ...i, onServices: found.get(keyOf(i.title)) ?? [] }));
 }
 
-/** Cold start and top-up: community top rated plus trending, movies and TV interleaved. */
-async function popularFeed(excluded: Set<Key>): Promise<FeedItem[]> {
-  const [movieTop, tvTop, movieTrend, tvTrend] = await Promise.all([
-    topRated("movie"),
-    topRated("tv"),
-    trending("movie"),
-    trending("tv"),
-  ]);
-  const lists = [movieTop, tvTop, movieTrend, tvTrend];
+/** Cold start and top-up: community top rated plus trending, interleaved (movies and TV, or books). */
+async function popularFeed(excluded: Set<Key>, scope: FeedScope): Promise<FeedItem[]> {
+  const types = typesOf(scope);
+  const lists = await Promise.all([...types.map((t) => topRated(t)), ...types.map((t) => trending(t))]);
   const seen = new Set<Key>(excluded);
   const out: FeedItem[] = [];
   for (let i = 0; out.length < FEED_SIZE && lists.some((l) => i < l.length); i++) {
