@@ -47,6 +47,10 @@ export default function Register() {
         By creating an account you agree to the{" "}
         <Text style={{ color: colors.brand, fontWeight: "700" }} onPress={() => router.push("/guidelines")}>
           community guidelines
+        </Text>{" "}
+        and the{" "}
+        <Text style={{ color: colors.brand, fontWeight: "700" }} onPress={() => router.push("/privacy-policy")}>
+          privacy policy
         </Text>
         .
       </Text>

@@ -1,5 +1,6 @@
 import { Text, View } from "react-native";
 import { H1, Muted, Screen } from "@/components/ui";
+import { contactSupport, SUPPORT_EMAIL } from "@/legal";
 import { colors } from "@/theme";
 
 const RULES: [string, string][] = [
@@ -35,7 +36,11 @@ export default function GuidelinesScreen() {
         <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16 }}>If something's wrong</Text>
         <Muted>
           Open the person's profile and tap ••• to report or block them. Blocking hides you from each other straight away,
-          and they aren't told.
+          and they aren't told. You can also email us at{" "}
+          <Text style={{ color: colors.brand, fontWeight: "700" }} onPress={() => contactSupport("Report a problem")}>
+            {SUPPORT_EMAIL}
+          </Text>
+          .
         </Muted>
       </View>
     </Screen>
