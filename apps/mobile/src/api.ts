@@ -1,11 +1,6 @@
 import { createApiClient } from "@encore/shared";
 import Constants from "expo-constants";
-import * as SecureStore from "expo-secure-store";
-
-const KEY = "encore.token";
-
-/** In-memory copy so requests don't wait on the keychain. */
-let memory: string | null = null;
+import { accessToken } from "./supabase";
 
 function apiBaseUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
@@ -13,20 +8,7 @@ function apiBaseUrl() {
   return host ? `http://${host}:4000` : "http://localhost:4000";
 }
 
-export const tokenStore = {
-  async load() {
-    memory = await SecureStore.getItemAsync(KEY);
-    return memory;
-  },
-  get: () => memory,
-  async set(token: string | null) {
-    memory = token;
-    if (token) await SecureStore.setItemAsync(KEY, token);
-    else await SecureStore.deleteItemAsync(KEY);
-  },
-};
-
-/** Set by AuthProvider; runs when the server rejects the saved token (expired or revoked). */
+/** Set by AuthProvider; runs when the server rejects the session (signed out on another device or deleted). */
 let onSessionExpired: ((token: string) => void) | null = null;
 export function setSessionExpiredHandler(handler: ((token: string) => void) | null) {
   onSessionExpired = handler;
@@ -34,6 +16,6 @@ export function setSessionExpiredHandler(handler: ((token: string) => void) | nu
 
 export const api = createApiClient({
   baseUrl: apiBaseUrl(),
-  getToken: () => memory,
+  getToken: accessToken,
   onUnauthorized: (token) => onSessionExpired?.(token),
 });

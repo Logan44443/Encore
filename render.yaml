@@ -1,0 +1,46 @@
+# Render Blueprint for the Encore API. In Render: New > Blueprint, pick this repo.
+# Secrets (sync: false) are asked for once in Render's dashboard and never live in git.
+services:
+  - type: web
+    name: encore-api
+    runtime: node
+    # Same region as the Supabase project (us-east-2), so database calls stay fast.
+    region: ohio
+    plan: starter
+    buildCommand: npm ci --include=dev && npm run build -w @encore/api
+    # Runs before each deploy goes live; a failed migration stops the deploy.
+    preDeployCommand: npm run db:migrate -w @encore/api
+    startCommand: npm run start -w @encore/api
+    healthCheckPath: /health
+    # Only redeploy for changes the API is built from.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - package.json
+        - package-lock.json
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      # Render sits behind a proxy: rate limits should use the caller's real IP.
+      - key: TRUST_PROXY
+        value: "1"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: TMDB_API_KEY
+        sync: false
+      - key: SETLISTFM_API_KEY
+        sync: false
+      - key: GOOGLE_BOOKS_API_KEY
+        sync: false
+      - key: MUSICBRAINZ_USER_AGENT
+        sync: false

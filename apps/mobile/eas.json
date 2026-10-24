@@ -7,13 +7,17 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-HOSTED-API"
+        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-HOSTED-API",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://REPLACE-WITH-PROD-PROJECT.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "REPLACE-WITH-PROD-PUBLISHABLE-KEY"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-HOSTED-API"
+        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-HOSTED-API",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://REPLACE-WITH-PROD-PROJECT.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "REPLACE-WITH-PROD-PUBLISHABLE-KEY"
       }
     }
   },

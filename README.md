@@ -14,7 +14,7 @@ Track and rank what you watch and who you've seen live — a mix of Letterboxd a
 
 ```
 apps/
-  api/        Hono REST API · Drizzle ORM · Postgres (PGlite embedded in dev)
+  api/        Hono REST API · Drizzle ORM · Supabase (Postgres + Auth)
   web/        Next.js 16 (App Router) · Tailwind v4 · TanStack Query · installable PWA
   mobile/     Expo SDK 57 · React Native · expo-router — the iOS app (npm run ios -w @encore/mobile)
 packages/
@@ -25,7 +25,7 @@ packages/
 
 - **API is separate from the website.** Web and a future iOS/Android app talk to the same REST API with bearer-token auth (no cookies), so the mobile app needs zero backend changes.
 - **`@encore/shared` holds everything platform-agnostic**: request validation (the API validates with the exact same Zod schemas the clients use), response types, the ranking algorithm, and the API client (plain `fetch`, pluggable token storage).
-- **Zero-setup database.** Without `DATABASE_URL` the API runs embedded Postgres (PGlite) on disk in `apps/api/.data`. Set `DATABASE_URL` and the same migrations run against real Postgres.
+- **Supabase for data and sign-in.** Postgres and Auth live in a Supabase project; the API connects through the session pooler and creates sessions with Supabase Auth, and the iOS app keeps that session with supabase-js. Every table has Row Level Security (see `apps/api/drizzle/0001_supabase_security.sql`), so the app can later read and write some tables directly. Copy `apps/api/.env.example` and `apps/mobile/.env.example` to `.env` and fill them in from the Supabase dashboard.
 
 ### Data sources
 
@@ -124,7 +124,7 @@ npm run build                               # production builds
 
 | Method & path | Purpose |
 | --- | --- |
-| `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Accounts (scrypt hashes, 30-day JWT) |
+| `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Accounts (Supabase Auth; returns its access and refresh tokens) |
 | `GET /catalog/search?type=movie\|tv&q=` | Find titles |
 | `GET /catalog/trending?type=` · `GET /catalog/top-rated?type=` | Community charts (with per-title log counts and average score) |
 | `GET /catalog/genres?type=` · `GET /catalog/recommendations?type=&genreId=` | Genres (with your/community counts) and per-genre picks |
@@ -139,8 +139,9 @@ npm run build                               # production builds
 
 ## Deploying
 
-- **Database:** any managed Postgres (Neon, Supabase, RDS). Set `DATABASE_URL`.
-- **API:** `npm run build -w @encore/api` → `node dist/index.js` (run from `apps/api` so it finds `drizzle/`). Set `NODE_ENV=production`, `JWT_SECRET`, `CORS_ORIGINS`. Fits Fly.io, Railway, Render, or a container.
+- **Database and sign-in:** a Supabase project. `npm run db:migrate -w @encore/api` applies `apps/api/drizzle/` (the API does this itself on start-up outside production).
+- **API:** `render.yaml` deploys it to Render (Ohio, next to the Supabase project). Set `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` and the provider keys in Render's Environment page. Locally: `npm run build -w @encore/api` → `node dist/index.js` from `apps/api`.
+- **Checks:** `npm run test:rls -w @encore/api` (privacy rules, needs a throwaway local Postgres in `TEST_DATABASE_URL`), `npm run smoke -w @encore/api` and `npm run smoke:auth -w @encore/api` against a running API.
 - **Web:** deploy `apps/web` to Vercel (or `next build && next start`) with `NEXT_PUBLIC_API_URL`.
 - **Scaling:** the API is stateless except for the in-memory third-party cache (`apps/api/src/lib/cache.ts`); swap it for Redis when running multiple instances.
 

@@ -14,10 +14,10 @@
     "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
     "test:rls": "tsx scripts/rls-test.ts",
     "smoke": "tsx scripts/smoke.ts",
-    "smoke:auth": "tsx scripts/auth-smoke.ts"
+    "smoke:auth": "tsx scripts/auth-smoke.ts",
+    "db:copy-from-pglite": "tsx --env-file-if-exists=.env scripts/copy-from-pglite.ts"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.8",
     "@encore/shared": "*",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
@@ -28,6 +28,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.28.2"
   }

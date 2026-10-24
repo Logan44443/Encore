@@ -19,7 +19,7 @@ export default function SettingsScreen() {
 }
 
 function Settings() {
-  const { user, signIn, signOut } = useAuth();
+  const { user, setUser, signOut } = useAuth();
   const country = useCountry();
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -34,7 +34,7 @@ function Settings() {
         onPress: async () => {
           setPending(true);
           try {
-            await signIn(await api.account.signOutOthers());
+            setUser((await api.account.signOutOthers()).user);
             Alert.alert("Done", "Every other device has been signed out.");
           } catch (err) {
             Alert.alert("Couldn't sign out other devices", errorMessage(err) ?? "Try again.");
