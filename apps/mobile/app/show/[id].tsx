@@ -8,7 +8,7 @@ import { api } from "@/api";
 import { useAuth } from "@/auth";
 import { LiveForm } from "@/components/LiveForm";
 import { PerformerPhoto } from "@/components/PerformerPhoto";
-import { AuthGate, Button, Card, ErrorText, H1, Loading, Muted, Screen } from "@/components/ui";
+import { AuthGate, Button, Card, CreditLine, ErrorText, H1, Loading, Muted, Screen } from "@/components/ui";
 import { companionNames } from "@/companions";
 import { formatDate, formatPlace, mapUrl, showPhoto, showTitle } from "@/format";
 import { formToPayload, showToForm, type LiveShowFormValues } from "@/live-form";
@@ -37,6 +37,13 @@ function Detail() {
     queryKey: theirs ? ["live", "user", owner, id] : ["live", id],
     queryFn: () => (theirs ? api.users.liveShow(owner!, id!) : api.live.get(id!)),
     enabled: Boolean(id),
+  });
+
+  const credits = useQuery({
+    queryKey: ["credits", data?.show.id, data ? showPhoto(data.show).uri : null, data?.show.setlistFmId],
+    queryFn: () => api.music.credits({ photo: showPhoto(data!.show).uri, setlist: data!.show.setlistFmId }),
+    enabled: Boolean(data && (showPhoto(data.show).uri || data.show.setlistFmId)),
+    staleTime: Infinity,
   });
 
   const invalidate = () => {
@@ -98,6 +105,7 @@ function Detail() {
           accessibilityLabel={hero.name}
         />
       ) : null}
+      <CreditLine credit={credits.data?.photo} />
       <Muted>
         {formatDate(show.date)} · {SHOW_KIND_LABELS[show.kind]}
       </Muted>
@@ -136,6 +144,7 @@ function Detail() {
           ))}
         </Card>
       ))}
+      <CreditLine credit={credits.data?.setlist} />
       {theirs ? null : <OwnerActions onEdit={() => setEditing(true)} onDelete={() => remove.mutate()} />}
     </Screen>
   );

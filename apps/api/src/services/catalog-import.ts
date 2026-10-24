@@ -5,6 +5,7 @@ import { db } from "../db/client";
 import { catalogImports, titleEntries, watchlistItems, type StoredUnmatched } from "../db/schema";
 import { bestBookMatch, bookTitle, parseGoodreads } from "../lib/goodreads";
 import { bestMatch, parseExport } from "../lib/letterboxd";
+import { isOffensiveText } from "../lib/moderation";
 import { readZip, ZipError } from "../lib/zip";
 import { catalog } from "../providers/catalog";
 import { workForIsbn } from "../providers/openlibrary";
@@ -177,6 +178,9 @@ export async function startImport(userId: string, source: ImportSource, uploads:
   const items = SOURCES[source].parse(uploads);
   if (items.length === 0) throw new HTTPException(400, { message: `There are no ${noun} in that export yet.` });
   if (items.length > MAX_ITEMS) throw new HTTPException(400, { message: `That export has more than ${MAX_ITEMS} ${noun}.` });
+
+  // Imported reviews get the same language check as ones typed in the app; the rating still comes across.
+  for (const item of items) if (item.review && isOffensiveText(item.review)) item.review = null;
 
   // Rated items first, so the rankings fill in before the long tail.
   items.sort((a, b) => Number(b.rating !== null) - Number(a.rating !== null));

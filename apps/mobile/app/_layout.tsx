@@ -41,6 +41,7 @@ export default function RootLayout() {
           <Stack.Screen name="import-goodreads" options={{ title: "Goodreads", presentation: "modal" }} />
           <Stack.Screen name="guidelines" options={{ title: "Community guidelines", presentation: "modal" }} />
           <Stack.Screen name="privacy-policy" options={{ title: "Privacy policy", presentation: "modal" }} />
+          <Stack.Screen name="credits" options={{ title: "Credits", presentation: "modal" }} />
         </Stack>
       </AuthProvider>
     </QueryClientProvider>

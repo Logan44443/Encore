@@ -104,6 +104,7 @@ function Settings() {
       <SettingsGroup title="About">
         <SettingsRow label="Privacy policy" onPress={() => router.push("/privacy-policy")} />
         <SettingsRow label="Community guidelines" onPress={() => router.push("/guidelines")} />
+        <SettingsRow label="Credits" onPress={() => router.push("/credits")} />
         <SettingsRow label="Contact support" value={SUPPORT_EMAIL} onPress={() => contactSupport()} last />
       </SettingsGroup>
 
