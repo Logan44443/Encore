@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { newPasswordSchema } from "./schemas";
 
-/** Length of the one-time code emailed to the user. */
+/** Length of the one-time code emailed to the user (Supabase Auth's "Email OTP length"). */
 export const RESET_CODE_LENGTH = 6;
 
 export const passwordResetRequestSchema = z.object({

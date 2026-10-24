@@ -1,9 +1,9 @@
 import type { Relationship } from "@encore/shared";
 import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
-import { blocks, friendRequests, friendships, users } from "../db/schema";
+import { blocks, friendRequests, friendships, profiles } from "../db/schema";
 
-type Owner = Pick<typeof users.$inferSelect, "id" | "profileVisibility" | "shareReviews" | "allowFriendRequests">;
+type Owner = Pick<typeof profiles.$inferSelect, "id" | "profileVisibility" | "shareReviews" | "allowFriendRequests">;
 
 /** True when either person has blocked the other. Blocks hide people from each other in both directions. */
 export async function blockedEitherWay(a: string, b: string): Promise<boolean> {
@@ -15,7 +15,7 @@ export async function blockedEitherWay(a: string, b: string): Promise<boolean> {
 }
 
 /** SQL condition: `userColumn` is not someone `viewerId` blocked or was blocked by. */
-export const notBlockedWith = (viewerId: string, userColumn: typeof users.id) => sql`not exists (
+export const notBlockedWith = (viewerId: string, userColumn: typeof profiles.id) => sql`not exists (
   select 1 from ${blocks}
   where (${blocks.blockerId} = ${viewerId} and ${blocks.blockedId} = ${userColumn})
      or (${blocks.blockerId} = ${userColumn} and ${blocks.blockedId} = ${viewerId})

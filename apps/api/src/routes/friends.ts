@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { db } from "../db/client";
-import { blocks, friendRequests, friendships, reports, users } from "../db/schema";
+import { blocks, friendRequests, friendships, profiles, reports } from "../db/schema";
 import { requireAuth, type AuthVars } from "../lib/auth";
 import { RateLimiter, tooMany } from "../lib/rate-limit";
 import { areFriends, blockedEitherWay, cutTies } from "../lib/social";
@@ -23,7 +23,7 @@ const MAX_PENDING_SENT = 100;
 const idParam = validate("param", z.object({ id: z.uuid() }));
 const userIdParam = validate("param", z.object({ userId: z.uuid() }));
 
-const publicColumns = { id: users.id, username: users.username, displayName: users.displayName };
+const publicColumns = { id: profiles.id, username: profiles.username, displayName: profiles.displayName };
 
 /** Makes two people friends and clears any requests between them. Safe to repeat. */
 async function befriend(a: string, b: string) {
@@ -56,9 +56,9 @@ export const friendRoutes = new Hono<AuthVars>()
     const rows = await db
       .select(publicColumns)
       .from(friendships)
-      .innerJoin(users, eq(users.id, friendships.friendId))
+      .innerJoin(profiles, eq(profiles.id, friendships.friendId))
       .where(eq(friendships.userId, c.get("userId")))
-      .orderBy(users.displayName);
+      .orderBy(profiles.displayName);
     return c.json({ friends: rows.map(toPublicUser) });
   })
 
@@ -68,13 +68,13 @@ export const friendRoutes = new Hono<AuthVars>()
       db
         .select({ id: friendRequests.id, createdAt: friendRequests.createdAt, user: publicColumns })
         .from(friendRequests)
-        .innerJoin(users, eq(users.id, friendRequests.fromUserId))
+        .innerJoin(profiles, eq(profiles.id, friendRequests.fromUserId))
         .where(eq(friendRequests.toUserId, userId))
         .orderBy(desc(friendRequests.createdAt)),
       db
         .select({ id: friendRequests.id, createdAt: friendRequests.createdAt, user: publicColumns })
         .from(friendRequests)
-        .innerJoin(users, eq(users.id, friendRequests.toUserId))
+        .innerJoin(profiles, eq(profiles.id, friendRequests.toUserId))
         .where(eq(friendRequests.fromUserId, userId))
         .orderBy(desc(friendRequests.createdAt)),
     ]);
@@ -104,7 +104,7 @@ export const friendRoutes = new Hono<AuthVars>()
     const userId = c.get("userId");
     const wait = requestsByAccount.hit(userId);
     if (wait > 0) tooMany(wait);
-    const target = await db.query.users.findFirst({ where: usernameIs(c.req.valid("json").username.replace(/^@/, "")) });
+    const target = await db.query.profiles.findFirst({ where: usernameIs(c.req.valid("json").username.replace(/^@/, "")) });
     // Blocked either way looks the same as a username that doesn't exist.
     if (!target || (target.id !== userId && (await blockedEitherWay(userId, target.id)))) {
       throw new HTTPException(404, { message: "User not found" });
@@ -170,7 +170,7 @@ export const safetyRoutes = new Hono<AuthVars>()
     const rows = await db
       .select(publicColumns)
       .from(blocks)
-      .innerJoin(users, eq(users.id, blocks.blockedId))
+      .innerJoin(profiles, eq(profiles.id, blocks.blockedId))
       .where(eq(blocks.blockerId, c.get("userId")))
       .orderBy(desc(blocks.createdAt));
     return c.json({ users: rows.map(toPublicUser) });
@@ -180,7 +180,7 @@ export const safetyRoutes = new Hono<AuthVars>()
     const userId = c.get("userId");
     const { userId: blockedId } = c.req.valid("json");
     if (blockedId === userId) throw new HTTPException(400, { message: "You can't block yourself" });
-    const target = await db.query.users.findFirst({ where: eq(users.id, blockedId), columns: { id: true } });
+    const target = await db.query.profiles.findFirst({ where: eq(profiles.id, blockedId), columns: { id: true } });
     if (!target) throw new HTTPException(404, { message: "User not found" });
     await db.insert(blocks).values({ blockerId: userId, blockedId }).onConflictDoNothing();
     await cutTies(userId, blockedId);
@@ -200,7 +200,7 @@ export const safetyRoutes = new Hono<AuthVars>()
     if (wait > 0) tooMany(wait);
     const body = c.req.valid("json");
     if (body.userId === userId) throw new HTTPException(400, { message: "You can't report yourself" });
-    const target = await db.query.users.findFirst({ where: eq(users.id, body.userId), columns: { id: true, username: true } });
+    const target = await db.query.profiles.findFirst({ where: eq(profiles.id, body.userId), columns: { id: true, username: true } });
     if (!target) throw new HTTPException(404, { message: "User not found" });
     await db.insert(reports).values({
       reporterId: userId,

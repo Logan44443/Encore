@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { HTTPException } from "hono/http-exception";
 import { db } from "../db/client";
-import { friendships, liveShows, titleEntries, titles, users, venues, watchCompanions } from "../db/schema";
+import { friendships, liveShows, profiles, titleEntries, titles, venues, watchCompanions } from "../db/schema";
 import { toPublicUser } from "../lib/users";
 import { toTitleSummary } from "./titles";
 
@@ -32,9 +32,9 @@ export async function resolveCompanions(ownerId: string, inputs: CompanionInput[
   });
   if (friendIds.length) {
     const rows = await db
-      .select({ id: users.id, displayName: users.displayName, allowTags: users.allowTags })
+      .select({ id: profiles.id, displayName: profiles.displayName, allowTags: profiles.allowTags })
       .from(friendships)
-      .innerJoin(users, eq(users.id, friendships.friendId))
+      .innerJoin(profiles, eq(profiles.id, friendships.friendId))
       .where(and(eq(friendships.userId, ownerId), inArray(friendships.friendId, friendIds)));
     if (rows.length !== friendIds.length) {
       throw new HTTPException(400, { message: "You can only tag your friends. Add other people by name." });
@@ -128,10 +128,10 @@ async function companionsFor(kind: "entry" | "show", ids: string[], viewerId: st
       target: column,
       name: watchCompanions.name,
       confirmed: watchCompanions.confirmed,
-      user: { id: users.id, username: users.username, displayName: users.displayName },
+      user: { id: profiles.id, username: profiles.username, displayName: profiles.displayName },
     })
     .from(watchCompanions)
-    .leftJoin(users, eq(users.id, watchCompanions.friendId))
+    .leftJoin(profiles, eq(profiles.id, watchCompanions.friendId))
     .where(
       and(
         inArray(column, ids),
@@ -159,7 +159,7 @@ export async function withShowCompanions(shows: LiveShow[], viewerId: string, ow
   return shows.map((s) => ({ ...s, companions: map.get(s.id) ?? [] }));
 }
 
-const owners = alias(users, "owners");
+const owners = alias(profiles, "owners");
 
 /** Tags from friends waiting for `userId` to confirm, newest first. */
 export async function pendingTags(userId: string): Promise<PendingTag[]> {

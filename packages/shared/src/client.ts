@@ -295,10 +295,10 @@ export function createApiClient({
       updateProfile: (body: UpdateProfileInput) => request<{ user: User }>("PATCH", p("/account/profile"), { body }),
       updatePrivacy: (body: UpdatePrivacyInput) => request<{ user: User }>("PATCH", p("/account/privacy"), { body }),
       changeEmail: (body: ChangeEmailInput) => request<{ user: User }>("PUT", p("/account/email"), { body }),
-      /** Signs out every other device; the returned token keeps this one signed in. */
-      changePassword: (body: ChangePasswordInput) => request<AuthResponse>("PUT", p("/account/password"), { body }),
-      /** Signs out every other device; the returned token keeps this one signed in. */
-      signOutOthers: () => request<AuthResponse>("POST", p("/account/sign-out-others")),
+      /** Signs out every other device; this one stays signed in. */
+      changePassword: (body: ChangePasswordInput) => request<{ user: User }>("PUT", p("/account/password"), { body }),
+      /** Signs out every other device; this one stays signed in. */
+      signOutOthers: () => request<{ user: User }>("POST", p("/account/sign-out-others")),
       /** Permanently deletes the signed-in account and everything it logged. */
       delete: (body: DeleteAccountInput) => request<null>("POST", p("/account/delete"), { body }),
     },
