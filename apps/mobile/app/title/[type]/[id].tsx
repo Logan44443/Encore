@@ -141,11 +141,7 @@ export default function TitleScreen() {
           <Chip key={g.id} label={g.name} onPress={() => router.push(`/discover?type=${mediaType}&genre=${g.id}`)} />
         ))}
       </View>
-      {title.pageCount ? <Muted>{title.pageCount} pages</Muted> : null}
-      <Muted>{title.overview}</Muted>
-      {mediaType !== "book" && <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} titleName={title.name} />}
-      {user ? <FriendsOnTitle mediaType={mediaType} tmdbId={tmdbId} /> : null}
-
+      {/* Rank now sits right under the genres, above the description. */}
       {!myEntry && (
         <View style={{ gap: 8 }}>
           <Button label={RANK_LABEL[mediaType]} onPress={startRank} />
@@ -159,6 +155,10 @@ export default function TitleScreen() {
           )}
         </View>
       )}
+      {title.pageCount ? <Muted>{title.pageCount} pages</Muted> : null}
+      <Muted>{title.overview}</Muted>
+      {mediaType !== "book" && <WhereToWatch mediaType={mediaType} tmdbId={tmdbId} titleName={title.name} />}
+      {user ? <FriendsOnTitle mediaType={mediaType} tmdbId={tmdbId} /> : null}
 
       {mediaType === "tv" && user && title.seasons.length > 0 && (
         <View style={{ gap: 8 }}>
