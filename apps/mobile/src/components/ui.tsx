@@ -1,5 +1,5 @@
 import { ApiError, type Credit } from "@encore/shared";
-import { useRouter } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -40,8 +40,11 @@ export function Screen({
   gap?: number;
 }) {
   const insets = useSafeAreaInsets();
+  // The tab bar already sits above the home indicator, so tab screens don't need that inset again.
+  const inTabs = useSegments()[0] === "(tabs)";
+  const bottom = inTabs ? 16 : insets.bottom + 28;
   const pad: ViewStyle = padded
-    ? { padding: 16, paddingTop: safeTop ? insets.top + 8 : 16, paddingBottom: insets.bottom + 28, gap }
+    ? { padding: 16, paddingTop: safeTop ? insets.top + 8 : 16, paddingBottom: bottom, gap }
     : { flex: 1 };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: colors.ink }, pad]}>{children}</View>;
   return (
@@ -50,6 +53,9 @@ export function Screen({
       style={{ flex: 1, backgroundColor: colors.ink }}
       contentContainerStyle={pad}
       keyboardShouldPersistTaps="handled"
+      // Only scroll when the content is taller than the screen. Pull-to-refresh screens keep the
+      // bounce so a short list can still be pulled down.
+      alwaysBounceVertical={!!refreshControl}
       refreshControl={refreshControl}
     >
       {children}
