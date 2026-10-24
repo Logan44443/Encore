@@ -18,7 +18,7 @@ function LiveList() {
   for (const s of shows) byYear.set(s.date.slice(0, 4), [...(byYear.get(s.date.slice(0, 4)) ?? []), s]);
 
   return (
-    <Screen>
+    <Screen safeTop>
       <H1>Live</H1>
       <Muted>Every show you've been to — who played, where, and what hit.</Muted>
       <Button label="Add a show" onPress={() => router.push("/show/new")} />
@@ -72,7 +72,7 @@ function LiveList() {
 
 export default function LiveScreen() {
   return (
-    <AuthGate>
+    <AuthGate safeTop>
       <LiveList />
     </AuthGate>
   );

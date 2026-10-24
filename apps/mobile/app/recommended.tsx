@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { RefreshControl, useWindowDimensions, View } from "react-native";
 import { FEED_KEY, FeedCard, UndoBar, useDismiss, useFeed } from "@/components/Feed";
@@ -13,6 +14,8 @@ export default function Recommended() {
 }
 
 function FeedGrid() {
+  // Discover links here with ?type=movie or ?type=tv; Home-style links show both.
+  const { type } = useLocalSearchParams<{ type?: string }>();
   const feed = useFeed();
   const queryClient = useQueryClient();
   const { hidden, dismiss, undo } = useDismiss();
@@ -26,9 +29,12 @@ function FeedGrid() {
     setRefreshing(false);
   };
 
+  const items = (feed.data?.items ?? []).filter((i) => !type || i.title.mediaType === type);
+
   if (feed.isLoading) return <Loading />;
   return (
     <Screen refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="white" />}>
+      {type === "movie" || type === "tv" ? <Stack.Screen options={{ title: type === "tv" ? "Recommended shows" : "Recommended movies" }} /> : null}
       <Muted>
         {feed.data?.personalized
           ? "Picked from what you loved, what people with your taste rank highly, and your favourite genres."
@@ -36,9 +42,9 @@ function FeedGrid() {
       </Muted>
       <ErrorText error={feed.error} />
       {hidden ? <UndoBar name={hidden.item.title.name} onUndo={undo} /> : null}
-      {feed.data?.items.length ? (
+      {items.length ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-          {feed.data.items.map((item) => (
+          {items.map((item) => (
             <FeedCard
               key={`${item.title.mediaType}-${item.title.tmdbId}`}
               item={item}

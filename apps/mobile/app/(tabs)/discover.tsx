@@ -3,10 +3,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { api } from "@/api";
 import { useAuth } from "@/auth";
-import { FeedCard, UndoBar, useDismiss } from "@/components/Feed";
+import { FeedCard, UndoBar, useDismiss, useFeed } from "@/components/Feed";
 import { PosterRow } from "@/components/Poster";
 import { Chip, Empty, ErrorText, H1, Loading, Muted, Screen, SectionTitle, Segmented } from "@/components/ui";
 import { parseMediaType } from "@/format";
@@ -46,7 +46,9 @@ export default function Discover() {
   const genre = genres.data?.genres.find((g) => g.id === genreParam) ?? null;
 
   return (
-    <Screen>
+    // No navigation header here: the H1 is the screen's only title. Tighter gaps let Trending and
+    // Recommended both fit on one iPhone screen.
+    <Screen safeTop gap={12}>
       <H1>Discover</H1>
       <View style={styles.search}>
         <Ionicons name="search" size={18} color={colors.muted} />
@@ -154,9 +156,42 @@ function AllSections({ type }: { type: MediaType }) {
   return (
     <>
       <ErrorText error={trending.error ?? topRated.error} />
-      <Section title="Trending this week" items={trending.data?.results} badgeFor={recentBadge} />
+      <Section title="Trending this week" items={trending.data?.results} badgeFor={recentBadge} width={92} />
+      {/* The feed covers movies and TV only; books get their picks under each genre. */}
+      {type !== "book" && <Recommended type={type} />}
       <Section title="Top rated on Encore" items={topRated.data?.results} badgeFor={avgBadge} />
     </>
+  );
+}
+
+/** "Recommended for you", limited to the selected type. Signed-in only, since the feed is personal. */
+function Recommended({ type }: { type: MediaType }) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const feed = useFeed(!!user);
+  const { hidden, dismiss, undo } = useDismiss();
+  if (!user || feed.isLoading) return null;
+  if (feed.error) return <ErrorText error={feed.error} />;
+  const items = (feed.data?.items ?? []).filter((i) => i.title.mediaType === type).slice(0, 12);
+  if (!items.length && !hidden) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      <SectionTitle
+        children={type === "tv" ? "Recommended shows" : "Recommended movies"}
+        action={
+          <Pressable onPress={() => router.push(`/recommended?type=${type}`)} hitSlop={8}>
+            <Text style={styles.link}>See all</Text>
+          </Pressable>
+        }
+      />
+      {feed.data && !feed.data.personalized ? <Muted>Rank a few titles you liked to make these yours.</Muted> : null}
+      {hidden ? <UndoBar name={hidden.item.title.name} onUndo={undo} /> : null}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.carousel}>
+        {items.map((item) => (
+          <FeedCard key={`${item.title.mediaType}-${item.title.tmdbId}`} item={item} width={92} compact onDismiss={() => dismiss(item)} />
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -208,12 +243,22 @@ function GenreSections({ type, genre }: { type: MediaType; genre: GenreSummary }
 }
 
 /** A titled, swipeable row of posters. Hidden when it has nothing to show. */
-function Section({ title, items, badgeFor }: { title: string; items: Item[] | undefined; badgeFor?: (item: Item) => string | undefined }) {
+function Section({
+  title,
+  items,
+  badgeFor,
+  width,
+}: {
+  title: string;
+  items: Item[] | undefined;
+  badgeFor?: (item: Item) => string | undefined;
+  width?: number;
+}) {
   if (!items?.length) return null;
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 8 }}>
       <SectionTitle children={title} />
-      <PosterRow items={items} badgeFor={badgeFor} horizontal />
+      <PosterRow items={items} badgeFor={badgeFor} width={width} horizontal />
     </View>
   );
 }
@@ -229,7 +274,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
   },
-  searchInput: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 16 },
+  searchInput: { flex: 1, color: colors.text, paddingVertical: 11, fontSize: 16 },
+  link: { color: colors.brand, fontWeight: "700" },
   // Rows run edge to edge past the screen's 16pt padding, while the first item still lines up with it.
   bleed: { marginHorizontal: -16 },
   chips: { gap: 8, paddingHorizontal: 16 },

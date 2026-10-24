@@ -26,15 +26,22 @@ export function Screen({
   padded = true,
   scrollRef,
   refreshControl,
+  safeTop,
+  gap = 16,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   padded?: boolean;
   scrollRef?: React.Ref<ScrollView>;
   refreshControl?: React.ComponentProps<typeof ScrollView>["refreshControl"];
+  /** Pad below the status bar, for screens that hide the navigation header. */
+  safeTop?: boolean;
+  gap?: number;
 }) {
   const insets = useSafeAreaInsets();
-  const pad: ViewStyle = padded ? { padding: 16, paddingBottom: insets.bottom + 28, gap: 16 } : { flex: 1 };
+  const pad: ViewStyle = padded
+    ? { padding: 16, paddingTop: safeTop ? insets.top + 8 : 16, paddingBottom: insets.bottom + 28, gap }
+    : { flex: 1 };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: colors.ink }, pad]}>{children}</View>;
   return (
     <ScrollView
@@ -266,13 +273,13 @@ export function Card({ children, style }: { children: React.ReactNode; style?: V
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-export function AuthGate({ children }: { children: React.ReactNode }) {
+export function AuthGate({ children, safeTop }: { children: React.ReactNode; safeTop?: boolean }) {
   const { user, ready } = useAuth();
   const router = useRouter();
   if (!ready) return <Loading />;
   if (!user) {
     return (
-      <Screen>
+      <Screen safeTop={safeTop}>
         <H1>Sign in to continue</H1>
         <Muted>Your rankings, watchlist, and live shows stay on your account.</Muted>
         <Button label="Sign in" onPress={() => router.push("/login")} />

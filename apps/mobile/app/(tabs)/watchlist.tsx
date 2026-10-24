@@ -17,7 +17,7 @@ const KIND_NAME: Partial<Record<WatchlistKind, string>> = { movie: "Movie", tv: 
 
 export default function WatchlistScreen() {
   return (
-    <AuthGate>
+    <AuthGate safeTop>
       <Watchlist />
     </AuthGate>
   );
@@ -32,7 +32,7 @@ function Watchlist() {
   if (tab === "festival") visible = [...visible].sort((a, b) => (a.festival?.date ?? "9999").localeCompare(b.festival?.date ?? "9999"));
 
   return (
-    <Screen>
+    <Screen safeTop>
       <H1>Watchlist</H1>
       <Muted>Movies, shows, books, artists, and festivals. They come off once you rank or log them.</Muted>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>

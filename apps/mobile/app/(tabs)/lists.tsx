@@ -114,7 +114,7 @@ function Rankings() {
   const [type, setType] = useState<MediaType>("movie");
 
   return (
-    <Screen>
+    <Screen safeTop>
       <H1>Your rankings</H1>
       <Muted>
         {type !== "tv"
@@ -134,7 +134,7 @@ function Rankings() {
 
 export default function ListsScreen() {
   return (
-    <AuthGate>
+    <AuthGate safeTop>
       <Rankings />
     </AuthGate>
   );

@@ -47,23 +47,25 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="discover"
-        options={{ title: "Discover", tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} /> }}
+        // Discover, Watchlist, Rankings and Live show their own H1 instead of a centred header title.
+        options={{ title: "Discover", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="watchlist"
         options={{
           title: "Watchlist",
+          headerShown: false,
           href: user ? undefined : null,
           tabBarIcon: ({ color, size }) => <Ionicons name="bookmark" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="lists"
-        options={{ title: "Rankings", tabBarIcon: ({ color, size }) => <Ionicons name="list" color={color} size={size} /> }}
+        options={{ title: "Rankings", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="list" color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="live"
-        options={{ title: "Live", tabBarIcon: ({ color, size }) => <Ionicons name="ticket" color={color} size={size} /> }}
+        options={{ title: "Live", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="ticket" color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="profile"
