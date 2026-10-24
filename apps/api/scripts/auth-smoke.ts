@@ -1,8 +1,9 @@
 /**
  * Sign-in and account checks against a running API on Supabase Auth.
  *   API_URL=http://localhost:4000 npx tsx scripts/auth-smoke.ts
- * Set RESET_CODE only when Auth always issues that code (a local fake); real
- * Supabase emails a fresh one, so the reset step is skipped without it.
+ * Set RESET_CODE only when Auth always issues that code (a local fake); without
+ * it the reset step is skipped, so real Supabase sends no emails.
+ * Leaves one account behind (auth_…@example.com); delete it afterwards.
  */
 import assert from "node:assert/strict";
 import { createApiClient } from "@encore/shared";
@@ -45,18 +46,19 @@ await phone.api.auth.me();
 await assert.rejects(tablet.api.auth.me(), status(401));
 
 // Forgot password: the same answer for unknown addresses, and the code signs out everywhere.
-await phone.api.passwordReset.request({ email: `nobody_${suffix}@example.com` });
-await phone.api.passwordReset.request({ email });
+// Only against a fake Auth: real Supabase would send emails and use up its hourly email limit.
 const code = process.env.RESET_CODE;
 let password = "second-password";
 if (code) {
+  await phone.api.passwordReset.request({ email: `nobody_${suffix}@example.com` });
+  await phone.api.passwordReset.request({ email });
   await assert.rejects(phone.api.passwordReset.confirm({ email, code: code === "000000" ? "111111" : "000000", password: "third-password" }), status(400));
   await phone.api.passwordReset.confirm({ email, code, password: "third-password" });
   await assert.rejects(phone.api.auth.me(), status(401));
   password = "third-password";
   phone.box.token = (await phone.api.auth.login({ login: username, password })).token;
 } else {
-  console.log("password reset: skipped confirm (set RESET_CODE against a fake Auth)");
+  console.log("password reset: skipped (set RESET_CODE against a fake Auth)");
 }
 
 // Deleting the account needs the password, then the login and the session are gone.

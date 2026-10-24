@@ -15,7 +15,8 @@
     "test:rls": "tsx scripts/rls-test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "smoke:auth": "tsx scripts/auth-smoke.ts",
-    "db:copy-from-pglite": "tsx --env-file-if-exists=.env scripts/copy-from-pglite.ts"
+    "db:copy-from-pglite": "tsx --env-file-if-exists=.env scripts/copy-from-pglite.ts",
+    "smoke:cleanup": "tsx --env-file-if-exists=.env scripts/delete-test-accounts.ts"
   },
   "dependencies": {
     "@encore/shared": "*",
