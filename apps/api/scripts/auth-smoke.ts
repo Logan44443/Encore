@@ -1,11 +1,12 @@
 /**
  * Sign-in and account checks against a running API on Supabase Auth.
  *   API_URL=http://localhost:4000 npx tsx scripts/auth-smoke.ts
- * Set RESET_CODE only when Auth always issues that code (a local fake); without
- * it the reset step is skipped, so real Supabase sends no emails.
+ * Set API_LOG to the running API's log file to test password reset too: in
+ * development the API prints reset codes there instead of emailing them.
  * Leaves one account behind (auth_…@example.com); delete it afterwards.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createApiClient } from "@encore/shared";
 
 const baseUrl = process.env.API_URL ?? "http://localhost:4000";
@@ -46,19 +47,23 @@ await phone.api.auth.me();
 await assert.rejects(tablet.api.auth.me(), status(401));
 
 // Forgot password: the same answer for unknown addresses, and the code signs out everywhere.
-// Only against a fake Auth: real Supabase would send emails and use up its hourly email limit.
-const code = process.env.RESET_CODE;
+const apiLog = process.env.API_LOG;
 let password = "second-password";
-if (code) {
+if (apiLog) {
   await phone.api.passwordReset.request({ email: `nobody_${suffix}@example.com` });
   await phone.api.passwordReset.request({ email });
+  await new Promise((r) => setTimeout(r, 500));
+  const mail = readFileSync(apiLog, "utf8").split(`[mail] to=${email} `).at(-1) ?? "";
+  const code = mail.match(/password is (\d+)/)?.[1];
+  assert.ok(code, "the reset code is in the API log");
   await assert.rejects(phone.api.passwordReset.confirm({ email, code: code === "000000" ? "111111" : "000000", password: "third-password" }), status(400));
   await phone.api.passwordReset.confirm({ email, code, password: "third-password" });
+  await assert.rejects(phone.api.passwordReset.confirm({ email, code, password: "fourth-password" }), status(400), "a code works once");
   await assert.rejects(phone.api.auth.me(), status(401));
   password = "third-password";
   phone.box.token = (await phone.api.auth.login({ login: username, password })).token;
 } else {
-  console.log("password reset: skipped (set RESET_CODE against a fake Auth)");
+  console.log("password reset: skipped (set API_LOG to the API's log file)");
 }
 
 // Deleting the account needs the password, then the login and the session are gone.

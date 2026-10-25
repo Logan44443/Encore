@@ -298,7 +298,7 @@ The API already serves all of it. Porting is client work in `apps/web`, reusing 
 - **iOS verification:** the app was verified with typecheck and bundle export. UI testing was done by hand in the simulator by the product owner. Android is configured but untested.
 - **Migrations** run on API boot in development only; production runs them as Render's pre-deploy step.
 - **Scaling:** the in-memory caches (charts, feed, third-party responses) assume a single API instance. Move them to Redis before scaling out.
-- **Auth:** Supabase Auth (access + refresh tokens, sessions revocable at once, password reset by emailed code). Login, sign-up and searches are also rate-limited in memory in the API. Sign in with Apple becomes mandatory for the App Store only if social logins are added.
+- **Auth:** Supabase Auth (access + refresh tokens, sessions revocable at once, password reset by a 6-digit code the API sends itself; in development it's printed in the API's terminal, and production needs an email provider plugged into `apps/api/src/lib/mailer.ts`). Login, sign-up and searches are also rate-limited in memory in the API. Sign in with Apple becomes mandatory for the App Store only if social logins are added.
 - **Deployment setup:** there's no CI, no error tracking (Sentry), and no staging environment.
 
 ## Production readiness (recommended path)
@@ -312,7 +312,7 @@ The decision (2026-10-24): **Supabase for Postgres and Auth, with a slim Hono AP
 5. **iOS:**
    - Set `EXPO_PUBLIC_API_URL` to the hosted https API. `app.config.ts` then drops the plain-HTTP exceptions (iOS local networking, Android cleartext) automatically.
    - Set up EAS Build, build, and ship through TestFlight. This needs an Apple Developer account.
-6. **Hardening:** custom SMTP (Resend) for Supabase Auth emails, add Sentry to the API and both apps, and add CI that runs typecheck and tests on every push.
+6. **Hardening:** an email provider (Resend) in `apps/api/src/lib/mailer.ts` for reset codes and security notices, add Sentry to the API and both apps, and add CI that runs typecheck and tests on every push.
 7. **Legal:** add TMDB attribution; keep the JustWatch credit; get setlist.fm's permission if the app becomes commercial.
 
 ## Third-party terms to respect
