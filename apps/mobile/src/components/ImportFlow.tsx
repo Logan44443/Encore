@@ -1,6 +1,7 @@
 import type { CatalogImport, ImportSource, ImportUnmatched, SearchResult } from "@encore/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as DocumentPicker from "expo-document-picker";
+import { File } from "expo-file-system";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
@@ -70,8 +71,12 @@ function ImportFlow({ config }: { config: ImportConfig }) {
       if (picked.canceled) return null;
       const form = new FormData();
       for (const file of picked.assets) {
-        // React Native's FormData takes a { uri, name, type } object for a file on disk.
-        form.append("files", { uri: file.uri, name: file.name, type: file.mimeType ?? "application/octet-stream" } as unknown as Blob);
+        // Expo's fetch rejects React Native's { uri, name, type } file parts, so read the file and hand over its
+        // bytes. Expo's FormData sends any part with a bytes() method, using its name and type for the part headers.
+        // The picked name is kept (not the cache copy's) because the server tells Letterboxd's CSVs apart by name.
+        const onDisk = new File(file.uri);
+        const part = { name: file.name, type: file.mimeType ?? "application/octet-stream", bytes: () => onDisk.bytes() };
+        form.append("files", part as unknown as Blob);
       }
       return importer.start(form);
     },
