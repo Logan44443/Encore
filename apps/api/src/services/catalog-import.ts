@@ -2,7 +2,7 @@ import { scoreFromStars, type CatalogImport, type ImportCounts, type ImportSourc
 import { and, eq, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { db } from "../db/client";
-import { catalogImports, titleEntries, watchlistItems, type StoredUnmatched } from "../db/schema";
+import { catalogImports, titleEntries, titles, watchlistItems, type StoredUnmatched } from "../db/schema";
 import { bestBookMatch, bookTitle, parseGoodreads } from "../lib/goodreads";
 import { bestMatch, parseExport } from "../lib/letterboxd";
 import { isOffensiveText } from "../lib/moderation";
@@ -10,7 +10,7 @@ import { readZip, ZipError } from "../lib/zip";
 import { catalog } from "../providers/catalog";
 import { workForIsbn } from "../providers/openlibrary";
 import { invalidateDiscover } from "./discover";
-import { importRatedEntry, saveReview } from "./entries";
+import { importGenreFor, importRatedEntry, saveReview } from "./entries";
 import { invalidateFeed } from "./feed";
 import { getTitle, toTitleSummary } from "./titles";
 
@@ -55,7 +55,7 @@ const MAX_CSV_BYTES = 50 * 1024 * 1024;
 const SOURCES: Record<ImportSource, Source> = {
   letterboxd: {
     mediaType: "movie",
-    concurrency: 4,
+    concurrency: 8,
     noun: "films",
     parse(uploads) {
       const { films, recognised } = parseExport(exportFiles(uploads));
@@ -106,6 +106,21 @@ async function retry(find: () => Promise<number | null>): Promise<number | null>
   }
   return null;
 }
+
+/** Runs one task at a time per key, in the order they were queued; different keys run side by side. */
+export function keyedQueue() {
+  const tails = new Map<string, Promise<unknown>>();
+  return <T>(key: string, task: () => Promise<T>): Promise<T> => {
+    const result = (tails.get(key) ?? Promise.resolve()).then(task);
+    const tail = result.catch(() => undefined);
+    tails.set(key, tail);
+    void tail.then(() => {
+      if (tails.get(key) === tail) tails.delete(key);
+    });
+    return result;
+  };
+}
+type Serialize = ReturnType<typeof keyedQueue>;
 
 /** Imports running in this process, by user and source. A "running" row with no job here was cut off by a restart. */
 const running = new Set<string>();
@@ -219,6 +234,8 @@ async function run(userId: string, source: ImportSource, items: ImportItem[]) {
   let done = 0;
   let savedAt = Date.now();
   const queue = [...items];
+  // Workers adding to the same ranking list take turns, so positions and scores aren't computed from a stale list.
+  const oneListAtATime = keyedQueue();
 
   const worker = async () => {
     for (let item = queue.shift(); item; item = queue.shift()) {
@@ -228,7 +245,7 @@ async function run(userId: string, source: ImportSource, items: ImportItem[]) {
         counts.unmatched++;
       } else {
         try {
-          tally(counts, notRated, await applyItem(userId, mediaType, item, match));
+          tally(counts, notRated, await applyItem(userId, mediaType, item, match, oneListAtATime));
         } catch (err) {
           console.warn(`[${source}] couldn't import "${item.name}" (${item.year}):`, (err as Error).message);
           unmatched.push(toUnmatched(item));
@@ -306,12 +323,17 @@ async function applyItem(
   mediaType: "movie" | "book",
   film: Pick<ImportItem, "watched" | "rating" | "watchedAt" | "loggedAt" | "review">,
   tmdbId: number,
+  serialize: Serialize = (_key, task) => task(),
 ): Promise<Outcome> {
-  const title = await getTitle(mediaType, tmdbId);
-  const [existing] = await db
-    .select({ id: titleEntries.id })
-    .from(titleEntries)
-    .where(and(eq(titleEntries.userId, userId), eq(titleEntries.titleId, title.id)));
+  // Looked up by TMDB id so it doesn't wait for getTitle: one round trip fewer per item.
+  const [title, [existing]] = await Promise.all([
+    getTitle(mediaType, tmdbId),
+    db
+      .select({ id: titleEntries.id })
+      .from(titleEntries)
+      .innerJoin(titles, eq(titles.id, titleEntries.titleId))
+      .where(and(eq(titleEntries.userId, userId), eq(titles.tmdbId, tmdbId), eq(titles.mediaType, mediaType))),
+  ]);
 
   if (!film.watched) {
     if (existing) return { kind: "skipped" };
@@ -326,13 +348,15 @@ async function applyItem(
   if (!existing && film.rating !== null) {
     const { tier, score } = scoreFromStars(film.rating);
     const when = noonUtc(film.watchedAt ?? film.loggedAt);
-    const added = await importRatedEntry(userId, title, {
-      tier,
-      score,
-      watchedAt: film.watchedAt,
-      review: film.review,
-      createdAt: when && when.getTime() < Date.now() ? when : null,
-    });
+    const added = await serialize(`${importGenreFor(title)}:${tier}`, () =>
+      importRatedEntry(userId, title, {
+        tier,
+        score,
+        watchedAt: film.watchedAt,
+        review: film.review,
+        createdAt: when && when.getTime() < Date.now() ? when : null,
+      }),
+    );
     if (added) return { kind: "ranked" };
   }
 
