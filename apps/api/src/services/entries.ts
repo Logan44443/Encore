@@ -101,8 +101,13 @@ async function recomputeScores(tx: Executor, key: ListKey) {
     .from(titleEntries)
     .where(inList(key))
     .orderBy(asc(titleEntries.position));
+  await writeScores(tx, key.tier, rows);
+}
+
+/** Rescores a list already read in ranking order. */
+async function writeScores(tx: Executor, tier: Tier, rows: { id: string; userScore: number | null }[]) {
   if (rows.length === 0) return;
-  const scores = scoreList(key.tier, rows.map((r) => r.userScore));
+  const scores = scoreList(tier, rows.map((r) => r.userScore));
   const values = sql.join(
     rows.map((r, i) => sql`(${r.id}::uuid, ${scores[i]}::real)`),
     sql`, `,
@@ -303,27 +308,49 @@ export async function createEntry(userId: string, input: CreateEntryInput): Prom
  * entry so a big import doesn't flood friends' activity or the trending charts.
  * Returns false (and changes nothing) if you've already ranked the title.
  */
+/** The ranking genre an imported title goes into: its first genre Encore ranks by, else the first ranking genre. */
+export function importGenreFor(title: { mediaType: MediaType; genres: { id: number }[] }): number {
+  return title.genres.find((g) => genresFor(title.mediaType).some((k) => k.id === g.id))?.id ?? genresFor(title.mediaType)[0].id;
+}
+
 export async function importRatedEntry(
   userId: string,
   title: { id: number; mediaType: MediaType; genres: { id: number }[] },
   input: { tier: Tier; score: number; watchedAt: string | null; review: string | null; createdAt: Date | null },
 ): Promise<boolean> {
-  const genreId = title.genres.find((g) => genresFor(title.mediaType).some((k) => k.id === g.id))?.id ?? genresFor(title.mediaType)[0].id;
+  const genreId = importGenreFor(title);
   const key: ListKey = { userId, mediaType: title.mediaType, genreId, tier: input.tier };
+  // Imports are mostly waiting on the database, so independent queries are sent together (postgres.js pipelines
+  // them on the transaction's connection): about 5 round trips per film instead of 10.
   return db.transaction(async (tx) => {
-    const [dupe] = await tx
-      .select({ id: titleEntries.id })
-      .from(titleEntries)
-      .where(and(eq(titleEntries.userId, userId), eq(titleEntries.titleId, title.id)));
+    const [[dupe], others] = await Promise.all([
+      tx
+        .select({ id: titleEntries.id })
+        .from(titleEntries)
+        .where(and(eq(titleEntries.userId, userId), eq(titleEntries.titleId, title.id))),
+      tx
+        .select({ id: titleEntries.id, score: titleEntries.score, userScore: titleEntries.userScore, position: titleEntries.position })
+        .from(titleEntries)
+        .where(inList(key))
+        .orderBy(asc(titleEntries.position)),
+    ]);
     if (dupe) return false;
 
-    const others = await tx
-      .select({ id: titleEntries.id, score: titleEntries.score })
-      .from(titleEntries)
-      .where(inList(key))
-      .orderBy(asc(titleEntries.position));
-    const aboveEntryId = others.filter((o) => o.score >= input.score).at(-1)?.id ?? null;
-    const position = await positionFor(tx, key, aboveEntryId);
+    // Under the last entry scoring at least as much, worked out from the list just read (as positionFor would).
+    let at = -1;
+    others.forEach((o, i) => {
+      if (o.score >= input.score) at = i;
+    });
+    const above = others[at];
+    const next = others[at + 1];
+    const position =
+      above === undefined
+        ? (next?.position ?? GAP) - GAP
+        : next === undefined
+          ? above.position + GAP
+          : next.position - above.position < MIN_GAP
+            ? await positionFor(tx, key, above.id)
+            : (above.position + next.position) / 2;
     const [inserted] = await tx
       .insert(titleEntries)
       .values({
@@ -339,9 +366,13 @@ export async function importRatedEntry(
         ...(input.createdAt ? { createdAt: input.createdAt } : {}),
       })
       .returning({ id: titleEntries.id });
-    await saveReview(tx, userId, inserted.id, input.review);
-    await recomputeScores(tx, key);
-    await clearWatchedTitle(tx, userId, title.id);
+    // Renormalizing moves positions but keeps the order, so this is still the list in ranking order.
+    const ranked = [...others.slice(0, at + 1), { id: inserted.id, userScore: input.score }, ...others.slice(at + 1)];
+    await Promise.all([
+      saveReview(tx, userId, inserted.id, input.review),
+      writeScores(tx, key.tier, ranked),
+      clearWatchedTitle(tx, userId, title.id),
+    ]);
     return true;
   });
 }
