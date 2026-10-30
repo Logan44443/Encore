@@ -1,4 +1,4 @@
-import type { CatalogImport, ImportSource, ImportUnmatched, SearchResult } from "@encore/shared";
+import { ApiError, type CatalogImport, type ImportSource, type ImportUnmatched, type SearchResult } from "@encore/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
@@ -85,7 +85,11 @@ function ImportFlow({ config }: { config: ImportConfig }) {
       queryClient.setQueryData([key], res);
       setStartOver(false);
     },
-    onError: (err) => Alert.alert("Couldn't import that file", errorMessage(err) ?? "Try again."),
+    onError: (err) => {
+      // "Can't reach Encore" covers any failed fetch, so print what actually went wrong to the Expo terminal.
+      if (__DEV__) console.warn("Import upload failed:", err, err instanceof ApiError ? err.details : undefined);
+      Alert.alert("Couldn't import that file", errorMessage(err) ?? "Try again.");
+    },
   });
 
   if (isLoading) return <Loading />;

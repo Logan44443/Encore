@@ -1,4 +1,4 @@
-import { createClient, processLock, type Session } from "@supabase/supabase-js";
+import { createClient, type Session } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 import { AppState } from "react-native";
 
@@ -30,8 +30,6 @@ export const supabase = createClient(url, publishableKey, {
     persistSession: true,
     // Sign-in is email/username + password through the API: no magic links or OAuth redirects.
     detectSessionInUrl: false,
-    // React Native has no Web Locks API; this keeps two refreshes from racing.
-    lock: processLock,
   },
 });
 
