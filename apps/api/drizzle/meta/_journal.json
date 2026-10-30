@@ -15,6 +15,13 @@
       "when": 1792837294450,
       "tag": "0001_supabase_security",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793323701216,
+      "tag": "0002_import_comparisons",
+      "breakpoints": true
     }
   ]
 }

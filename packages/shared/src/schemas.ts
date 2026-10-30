@@ -276,6 +276,15 @@ export const importFixSchema = z.object({
   tmdbId: z.number().int().positive().optional(),
 });
 
+/**
+ * Places an imported title once it's been compared: directly under `aboveEntryId`
+ * (null = top of its list). Left out, it stays where its stars put it.
+ */
+export const importCompareSchema = z.object({
+  entryId: z.uuid(),
+  aboveEntryId: z.uuid().nullable().optional(),
+});
+
 export type RegisterInput = z.input<typeof registerSchema>;
 export type LoginInput = z.input<typeof loginSchema>;
 export type EpisodeRef = z.infer<typeof episodeRefSchema>;
@@ -307,3 +316,4 @@ export type UpdateLiveShowInput = z.input<typeof updateLiveShowSchema>;
 export type AddWatchlistInput = z.input<typeof addWatchlistSchema>;
 export type UpdateWatchlistInput = z.input<typeof updateWatchlistSchema>;
 export type ImportFixInput = z.input<typeof importFixSchema>;
+export type ImportCompareInput = z.input<typeof importCompareSchema>;

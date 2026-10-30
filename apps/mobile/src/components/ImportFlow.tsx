@@ -1,4 +1,19 @@
-import { ApiError, type CatalogImport, type ImportSource, type ImportUnmatched, type SearchResult } from "@encore/shared";
+import {
+  ApiError,
+  TIER_LABELS,
+  answerComparison,
+  insertionIndex,
+  maxComparisons,
+  nextComparisonIndex,
+  startComparisonBetween,
+  type CatalogImport,
+  type ComparisonAnswer,
+  type ComparisonState,
+  type ImportCompareState,
+  type ImportSource,
+  type ImportUnmatched,
+  type SearchResult,
+} from "@encore/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
@@ -10,6 +25,7 @@ import { errorMessage, titleByline } from "../format";
 import { colors } from "../theme";
 import { RowButton } from "./PersonRow";
 import { Poster } from "./Poster";
+import { CompareCard } from "./RankSheet";
 import { AuthGate, Button, Card, ErrorText, Field, H1, Loading, Muted, Screen, SectionTitle } from "./ui";
 
 /** What differs between importing from Letterboxd (films) and Goodreads (books). */
@@ -44,6 +60,7 @@ function ImportFlow({ config }: { config: ImportConfig }) {
   const key = `${config.source}-import`;
   const importer = api[config.source];
   const [startOver, setStartOver] = useState(false);
+  const [comparing, setComparing] = useState(false);
   const { data, isLoading, error } = useQuery({
     queryKey: [key],
     queryFn: importer.status,
@@ -51,13 +68,22 @@ function ImportFlow({ config }: { config: ImportConfig }) {
   });
   const current = data?.import ?? null;
 
-  // When an import finishes, everything it touched (rankings, watchlist, profile, picks) is stale.
+  // Imported titles still to compare against the rest of their lists.
+  const compare = useQuery({
+    queryKey: [`${config.source}-compare`],
+    queryFn: importer.compare,
+    enabled: !!current && current.status !== "running",
+  });
+
+  // When an import finishes, everything it touched (rankings, watchlist, profile, picks) is stale,
+  // and it's time to compare what it brought in.
   const wasRunning = useRef(false);
   useEffect(() => {
     if (current?.status === "running") wasRunning.current = true;
     else if (wasRunning.current && current) {
       wasRunning.current = false;
       queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== key });
+      setComparing(true);
     }
   }, [current, queryClient, key]);
 
@@ -94,7 +120,20 @@ function ImportFlow({ config }: { config: ImportConfig }) {
 
   if (isLoading) return <Loading />;
   if (current?.status === "running") return <Progress current={current} noun={config.noun} />;
-  if (current && !startOver) return <Results config={config} current={current} onImportAgain={() => setStartOver(true)} />;
+  if (current && !startOver && comparing && compare.data?.next) {
+    return <CompareImports config={config} state={compare.data} onLeave={() => setComparing(false)} />;
+  }
+  if (current && !startOver) {
+    return (
+      <Results
+        config={config}
+        current={current}
+        toCompare={compare.data?.remaining ?? 0}
+        onCompare={() => setComparing(true)}
+        onImportAgain={() => setStartOver(true)}
+      />
+    );
+  }
 
   return (
     <Screen>
@@ -147,7 +186,19 @@ function Progress({ current, noun }: { current: CatalogImport; noun: string }) {
   );
 }
 
-function Results({ config, current, onImportAgain }: { config: ImportConfig; current: CatalogImport; onImportAgain: () => void }) {
+function Results({
+  config,
+  current,
+  toCompare,
+  onCompare,
+  onImportAgain,
+}: {
+  config: ImportConfig;
+  current: CatalogImport;
+  toCompare: number;
+  onCompare: () => void;
+  onImportAgain: () => void;
+}) {
   const router = useRouter();
   const { counts } = current;
   const done = config.mediaType === "book" ? "read" : "watched";
@@ -166,6 +217,19 @@ function Results({ config, current, onImportAgain }: { config: ImportConfig; cur
       <Card>
         {lines.length > 0 ? lines.map((l) => <Text key={l} style={styles.summary}>{l}</Text>) : <Muted>Nothing new to import.</Muted>}
       </Card>
+
+      {toCompare > 0 ? (
+        <Card>
+          <Text style={styles.summary}>
+            {toCompare} {plural(toCompare, config.noun)} to compare
+          </Text>
+          <Muted>
+            Your stars put them in order, but {config.noun}s with the same stars are a guess until you pick between them. It
+            takes a few taps each, and you can stop any time.
+          </Muted>
+          <Button label="Compare them" onPress={onCompare} />
+        </Card>
+      ) : null}
 
       {current.unmatched.length > 0 ? (
         <>
@@ -205,6 +269,85 @@ function Results({ config, current, onImportAgain }: { config: ImportConfig; cur
     </Screen>
   );
 }
+
+/**
+ * Compares imported titles into their lists one at a time, Beli-style. Each is
+ * only asked about against titles with the same stars (or ones ranked in
+ * Encore): its stars already say it's below the ones you rated higher.
+ */
+function CompareImports({ config, state, onLeave }: { config: ImportConfig; state: ImportCompareState; onLeave: () => void }) {
+  const queryClient = useQueryClient();
+  const compareKey = `${config.source}-compare`;
+  const next = state.next!;
+  const [cmp, setCmp] = useState<{ entryId: string; state: ComparisonState }>(() => ({
+    entryId: next.entryId,
+    state: startComparisonBetween(next.lo, next.hi),
+  }));
+  // A new title to compare starts a new set of questions.
+  const current = cmp.entryId === next.entryId ? cmp.state : startComparisonBetween(next.lo, next.hi);
+
+  const place = useMutation({
+    mutationFn: (aboveEntryId: string | null | undefined) => importerFor(config).place({ entryId: next.entryId, aboveEntryId }),
+    onSuccess: (res) => {
+      queryClient.setQueryData([compareKey], res);
+      // Scores across the list moved, so rankings, profile and picks are stale.
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== compareKey && q.queryKey[0] !== `${config.source}-import` });
+      if (res.next) setCmp({ entryId: res.next.entryId, state: startComparisonBetween(res.next.lo, res.next.hi) });
+    },
+    onError: (err) => {
+      // Something changed under us (another device, a re-rank): start this one again from fresh.
+      queryClient.invalidateQueries({ queryKey: [compareKey] });
+      Alert.alert("Couldn't save that", errorMessage(err) ?? "Try again.");
+    },
+  });
+
+  const answer = (a: ComparisonAnswer) => {
+    const after = answerComparison(current, a);
+    setCmp({ entryId: next.entryId, state: after });
+    if (nextComparisonIndex(after) === null) {
+      const index = insertionIndex(after);
+      place.mutate(index === 0 ? null : next.candidates[index - 1].entryId);
+    }
+  };
+
+  const opponentIdx = nextComparisonIndex(current);
+  const opponent = opponentIdx !== null ? next.candidates[opponentIdx] : null;
+
+  return (
+    <Screen>
+      <H1>Which did you like more?</H1>
+      <Muted>{`${state.remaining} ${plural(state.remaining, config.noun)} left · ${next.genreName} · ${TIER_LABELS[next.tier]}`}</Muted>
+      <Muted>{`Question ${current.asked + 1} of at most ${maxComparisons(next.hi - next.lo)} for this one`}</Muted>
+      {opponent ? (
+        <>
+          <View style={styles.compare}>
+            <CompareCard
+              name={next.title.name}
+              year={next.title.year}
+              posterUrl={next.title.posterUrl}
+              note={`${stars(next.stars)} on ${config.site}`}
+              highlight
+              onPress={() => !place.isPending && answer("new")}
+            />
+            <CompareCard
+              name={opponent.title.name}
+              year={opponent.title.year}
+              posterUrl={opponent.title.posterUrl}
+              onPress={() => !place.isPending && answer("existing")}
+            />
+          </View>
+          <Button label="Too close to call" tone="ghost" disabled={place.isPending} onPress={() => answer("tie")} />
+        </>
+      ) : (
+        <Muted>Saving…</Muted>
+      )}
+      <Button label={`Skip this ${config.noun}`} tone="ghost" disabled={place.isPending} onPress={() => place.mutate(undefined)} />
+      <Button label="Finish later" tone="ghost" onPress={onLeave} />
+    </Screen>
+  );
+}
+
+const importerFor = (config: ImportConfig) => api[config.source];
 
 function stars(rating: number): string {
   return "★".repeat(Math.floor(rating)) + (rating % 1 ? "½" : "");
@@ -293,4 +436,5 @@ const styles = StyleSheet.create({
   meta: { color: colors.muted, fontSize: 12, fontWeight: "500" },
   chevron: { color: colors.muted, fontSize: 22 },
   pick: { color: colors.brand, fontWeight: "700", fontSize: 13 },
+  compare: { flexDirection: "row", gap: 10 },
 });

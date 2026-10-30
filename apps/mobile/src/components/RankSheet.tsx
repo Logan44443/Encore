@@ -351,18 +351,21 @@ export function RankSheet({
   );
 }
 
-function CompareCard({
+export function CompareCard({
   name,
   year,
   posterUrl,
   onPress,
   highlight,
+  note,
 }: {
   name: string;
   year: number | null;
   posterUrl: string | null;
   onPress: () => void;
   highlight?: boolean;
+  /** A line under the year, such as its stars on another site. */
+  note?: string;
 }) {
   return (
     <Pressable onPress={onPress} style={[styles.compareCard, highlight && { borderColor: "rgba(245,158,11,0.45)" }]}>
@@ -371,6 +374,7 @@ function CompareCard({
         {name}
       </Text>
       {year ? <Text style={styles.meta}>{year}</Text> : null}
+      {note ? <Text style={styles.meta}>{note}</Text> : null}
     </Pressable>
   );
 }

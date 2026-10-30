@@ -4,16 +4,18 @@ import {
   genreName,
   genresFor,
   scoreList,
+  starBounds,
   type CreateEntryInput,
   type Entry,
   type EntryResult,
+  type ImportCompareState,
   type MediaType,
   type RankCandidate,
   type RerankEntryInput,
   type Tier,
   type UpdateEntryInput,
 } from "@encore/shared";
-import { and, asc, desc, eq, gt, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, ne, sql, type SQL } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { db, type DB } from "../db/client";
 import { entryReviews, titleEntries, titles } from "../db/schema";
@@ -301,22 +303,25 @@ export async function createEntry(userId: string, input: CreateEntryInput): Prom
   return { ...result, entry };
 }
 
-/**
- * Adds a title you rated somewhere else (a Letterboxd import) straight into its
- * ranking with that score, under every entry already scoring at least as much.
- * Unlike the slider, this works however big the list is. `createdAt` backdates the
- * entry so a big import doesn't flood friends' activity or the trending charts.
- * Returns false (and changes nothing) if you've already ranked the title.
- */
 /** The ranking genre an imported title goes into: its first genre Encore ranks by, else the first ranking genre. */
 export function importGenreFor(title: { mediaType: MediaType; genres: { id: number }[] }): number {
   return title.genres.find((g) => genresFor(title.mediaType).some((k) => k.id === g.id))?.id ?? genresFor(title.mediaType)[0].id;
 }
 
+/**
+ * Adds a title you rated somewhere else (a Letterboxd or Goodreads import) to its
+ * ranking, under every entry with at least as many stars (for one you ranked in
+ * Encore, its score halved), and marks it to be compared against the rest of the
+ * list. Its score comes from that place, like any ranking: the stars only decide
+ * where it starts, so a pile of 5★ films spreads out instead of all scoring 10.
+ * `createdAt` backdates the entry so a big import doesn't flood friends' activity
+ * or the trending charts. Returns false (and changes nothing) if you've already
+ * ranked the title.
+ */
 export async function importRatedEntry(
   userId: string,
   title: { id: number; mediaType: MediaType; genres: { id: number }[] },
-  input: { tier: Tier; score: number; watchedAt: string | null; review: string | null; createdAt: Date | null },
+  input: { tier: Tier; stars: number; watchedAt: string | null; review: string | null; createdAt: Date | null },
 ): Promise<boolean> {
   const genreId = importGenreFor(title);
   const key: ListKey = { userId, mediaType: title.mediaType, genreId, tier: input.tier };
@@ -329,17 +334,23 @@ export async function importRatedEntry(
         .from(titleEntries)
         .where(and(eq(titleEntries.userId, userId), eq(titleEntries.titleId, title.id))),
       tx
-        .select({ id: titleEntries.id, score: titleEntries.score, userScore: titleEntries.userScore, position: titleEntries.position })
+        .select({
+          id: titleEntries.id,
+          score: titleEntries.score,
+          userScore: titleEntries.userScore,
+          importStars: titleEntries.importStars,
+          position: titleEntries.position,
+        })
         .from(titleEntries)
         .where(inList(key))
         .orderBy(asc(titleEntries.position)),
     ]);
     if (dupe) return false;
 
-    // Under the last entry scoring at least as much, worked out from the list just read (as positionFor would).
+    // Under the last entry with at least as many stars, worked out from the list just read (as positionFor would).
     let at = -1;
     others.forEach((o, i) => {
-      if (o.score >= input.score) at = i;
+      if ((o.importStars ?? o.score / 2) >= input.stars) at = i;
     });
     const above = others[at];
     const next = others[at + 1];
@@ -361,13 +372,14 @@ export async function importRatedEntry(
         tier: input.tier,
         position,
         score: 0,
-        userScore: input.score,
+        importStars: input.stars,
+        comparePending: true,
         watchedAt: input.watchedAt,
         ...(input.createdAt ? { createdAt: input.createdAt } : {}),
       })
       .returning({ id: titleEntries.id });
     // Renormalizing moves positions but keeps the order, so this is still the list in ranking order.
-    const ranked = [...others.slice(0, at + 1), { id: inserted.id, userScore: input.score }, ...others.slice(at + 1)];
+    const ranked = [...others.slice(0, at + 1), { id: inserted.id, userScore: null }, ...others.slice(at + 1)];
     await Promise.all([
       saveReview(tx, userId, inserted.id, input.review),
       writeScores(tx, key.tier, ranked),
@@ -391,7 +403,7 @@ export async function rerankEntry(userId: string, id: string, input: RerankEntry
     const position = await positionFor(tx, newKey, aboveEntryId, id);
     await tx
       .update(titleEntries)
-      .set({ genreId: newKey.genreId, tier: newKey.tier, position, userScore })
+      .set({ genreId: newKey.genreId, tier: newKey.tier, position, userScore, comparePending: false })
       .where(eq(titleEntries.id, id));
     await recomputeScores(tx, newKey);
     if (oldKey.genreId !== newKey.genreId || oldKey.tier !== newKey.tier) await recomputeScores(tx, oldKey);
@@ -425,4 +437,160 @@ export async function deleteEntry(userId: string, id: string) {
     await tx.delete(titleEntries).where(eq(titleEntries.id, id));
     await recomputeScores(tx, { userId, mediaType: current.title.mediaType, genreId: current.genreId, tier: current.tier });
   });
+}
+
+/** Rescores the lists a migration queued in private.rescore_lists (scoreList only runs here), then clears the queue. */
+export async function rescoreQueuedLists() {
+  await db.transaction(async (tx) => {
+    const queued = (await tx.execute(sql`DELETE FROM private.rescore_lists RETURNING user_id, media_type, genre_id, tier`)) as unknown as {
+      user_id: string;
+      media_type: MediaType;
+      genre_id: number;
+      tier: Tier;
+    }[];
+    for (const q of queued) await recomputeScores(tx, { userId: q.user_id, mediaType: q.media_type, genreId: q.genre_id, tier: q.tier });
+  });
+}
+
+const compareColumns = {
+  id: titleEntries.id,
+  genreId: titleEntries.genreId,
+  tier: titleEntries.tier,
+  score: titleEntries.score,
+  importStars: titleEntries.importStars,
+  comparePending: titleEntries.comparePending,
+  position: titleEntries.position,
+  tmdbId: titles.tmdbId,
+  mediaType: titles.mediaType,
+  name: titles.name,
+  year: titles.year,
+  posterUrl: titles.posterUrl,
+  author: titles.author,
+};
+
+/** Takes an imported title off the to-compare list, first moving it directly under `aboveEntryId` (null = top) unless that's undefined. */
+async function settleImported(tx: Executor, key: ListKey, entryId: string, aboveEntryId: string | null | undefined) {
+  if (aboveEntryId === undefined) {
+    await tx.update(titleEntries).set({ comparePending: false }).where(eq(titleEntries.id, entryId));
+    return;
+  }
+  const position = await positionFor(tx, key, aboveEntryId, entryId);
+  await tx.update(titleEntries).set({ position, comparePending: false }).where(eq(titleEntries.id, entryId));
+  await recomputeScores(tx, key);
+}
+
+/**
+ * The next imported title to compare into its list, against everything there
+ * that isn't itself still waiting. Ones with nothing to ask about (the first in
+ * their list, or the only one with their stars) are settled on the way, so
+ * every question returned is a real one.
+ */
+export async function nextImportComparison(userId: string, mediaType: "movie" | "book"): Promise<ImportCompareState> {
+  for (;;) {
+    // Every list holding something still to compare, in one read: each list's titles are consecutive and best → worst.
+    const rows = await db
+      .select(compareColumns)
+      .from(titleEntries)
+      .innerJoin(titles, eq(titles.id, titleEntries.titleId))
+      .where(
+        and(
+          eq(titleEntries.userId, userId),
+          eq(titleEntries.mediaType, mediaType),
+          sql`(${titleEntries.genreId}, ${titleEntries.tier}) IN (
+            SELECT genre_id, tier FROM title_entries
+            WHERE user_id = ${userId} AND media_type = ${mediaType} AND compare_pending)`,
+        ),
+      )
+      .orderBy(asc(titleEntries.genreId), tierOrder, asc(titleEntries.position));
+    const lists: (typeof rows)[] = [];
+    for (const r of rows) {
+      const last = lists.at(-1);
+      if (last && last[0].genreId === r.genreId && last[0].tier === r.tier) last.push(r);
+      else lists.push([r]);
+    }
+    const starsOf = (r: (typeof rows)[number]) => r.importStars ?? r.score / 2;
+
+    // Settle what needs no questions. Settling only adds to what the rest are compared against,
+    // so a title that needs asking about still does after this.
+    const settled = new Set(rows.filter((r) => !r.comparePending).map((r) => r.id));
+    const quiet: string[] = [];
+    let move: { key: ListKey; id: string; aboveEntryId: string | null } | null = null;
+    for (const list of lists) {
+      for (const r of list) {
+        if (settled.has(r.id)) continue;
+        const others = list.filter((o) => settled.has(o.id));
+        const { lo, hi } = starBounds(starsOf(r), others.map((o) => o.importStars));
+        if (lo < hi) continue;
+        const at = others.filter((o) => o.position < r.position).length;
+        if (at === lo) {
+          settled.add(r.id);
+          quiet.push(r.id);
+        } else {
+          // Its known place isn't where it sits (something was moved out of star order): move it there.
+          move ??= { key: { userId, mediaType, genreId: r.genreId, tier: r.tier }, id: r.id, aboveEntryId: others[lo - 1]?.id ?? null };
+        }
+      }
+    }
+    if (quiet.length > 0) {
+      await db.update(titleEntries).set({ comparePending: false }).where(inArray(titleEntries.id, quiet));
+    }
+    if (move) {
+      const m = move;
+      await db.transaction((tx) => settleImported(tx, m.key, m.id, m.aboveEntryId));
+      continue;
+    }
+
+    const waiting = rows.filter((r) => !settled.has(r.id));
+    const first = waiting[0];
+    if (!first) return { remaining: 0, next: null };
+    const others = rows.filter((o) => o.genreId === first.genreId && o.tier === first.tier && settled.has(o.id));
+    const stars = starsOf(first);
+    return {
+      remaining: waiting.length,
+      next: {
+        entryId: first.id,
+        title: toTitleSummary(first),
+        stars,
+        genreId: first.genreId,
+        genreName: genreName(mediaType, first.genreId),
+        tier: first.tier,
+        candidates: others.map((o) => ({ entryId: o.id, title: toTitleSummary(o), score: o.score })),
+        ...starBounds(stars, others.map((o) => o.importStars)),
+      },
+    };
+  }
+}
+
+/** Saves where a compared import goes (`aboveEntryId`; undefined leaves it where its stars put it) and returns the next one. */
+export async function placeImportedEntry(
+  userId: string,
+  mediaType: "movie" | "book",
+  entryId: string,
+  aboveEntryId: string | null | undefined,
+): Promise<ImportCompareState> {
+  await db.transaction(async (tx) => {
+    const [entry] = await tx
+      .select({ genreId: titleEntries.genreId, tier: titleEntries.tier })
+      .from(titleEntries)
+      .where(
+        and(
+          eq(titleEntries.id, entryId),
+          eq(titleEntries.userId, userId),
+          eq(titleEntries.mediaType, mediaType),
+          eq(titleEntries.comparePending, true),
+        ),
+      )
+      .for("update");
+    if (!entry) throw new HTTPException(409, { message: "That one's already been compared. Here's the next." });
+    const key: ListKey = { userId, mediaType, genreId: entry.genreId, tier: entry.tier };
+    if (aboveEntryId) {
+      const [above] = await tx
+        .select({ pending: titleEntries.comparePending })
+        .from(titleEntries)
+        .where(and(inList(key, entryId), eq(titleEntries.id, aboveEntryId)));
+      if (!above || above.pending) throw new HTTPException(409, { message: "Ranking list changed — please compare again" });
+    }
+    await settleImported(tx, key, entryId, aboveEntryId);
+  });
+  return nextImportComparison(userId, mediaType);
 }

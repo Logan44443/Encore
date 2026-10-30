@@ -24,6 +24,7 @@ import type {
   UpdateServicesInput,
   UpdateEntryInput,
   UpdateLiveShowInput,
+  ImportCompareInput,
   ImportFixInput,
 } from "./schemas";
 import type { PasswordResetConfirmInput, PasswordResetRequestInput } from "./password-reset";
@@ -44,6 +45,7 @@ import type {
   GenreRecommendations,
   GenreSummary,
   CatalogImport,
+  ImportCompareState,
   ImportSource,
   LiveShow,
   Performer,
@@ -152,6 +154,10 @@ export function createApiClient({
     start: (form: FormData) => request<{ import: CatalogImport }>("POST", p(`/import/${source}`), { form, timeoutMs: 120_000 }),
     /** Imports an unmatched item as the title you picked, or skips it when tmdbId is left out. */
     fix: (body: ImportFixInput) => request<{ import: CatalogImport }>("POST", p(`/import/${source}/fix`), { body }),
+    /** The next imported title to compare into its list (null when none are left). */
+    compare: () => request<ImportCompareState>("GET", p(`/import/${source}/compare`)),
+    /** Saves where a compared title goes (or leaves it where its stars put it) and returns the next one. */
+    place: (body: ImportCompareInput) => request<ImportCompareState>("POST", p(`/import/${source}/compare`), { body }),
   });
 
   return {
