@@ -11,7 +11,11 @@ export function EntryRow({ entry, rank }: { entry: Entry; rank?: number }) {
   const router = useRouter();
   return (
     <Pressable onPress={() => router.push(`/title/${entry.title.mediaType}/${entry.title.tmdbId}`)} style={styles.row}>
-      {rank ? <Text style={styles.rank}>{rank}</Text> : null}
+      {rank ? (
+        <Text style={styles.rank} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {rank}
+        </Text>
+      ) : null}
       <Poster uri={entry.title.posterUrl} name={entry.title.name} width={44} />
       <View style={{ flex: 1 }}>
         <Text style={styles.name} numberOfLines={1}>
@@ -68,7 +72,8 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     padding: 8,
   },
-  rank: { color: colors.muted, width: 22, textAlign: "center", fontWeight: "800" },
+  // Wide enough for three digits on one line; four or more shrink to fit instead of wrapping.
+  rank: { color: colors.muted, width: 30, textAlign: "center", fontWeight: "800", fontVariant: ["tabular-nums"] },
   name: { color: colors.text, fontWeight: "700" },
   meta: { color: colors.muted, fontSize: 12, marginTop: 2 },
 });
