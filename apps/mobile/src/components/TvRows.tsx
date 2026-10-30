@@ -15,7 +15,11 @@ export function ShowScoreRow({ show, rank }: { show: ShowScore; rank?: number })
   const router = useRouter();
   return (
     <Pressable onPress={() => router.push(`/title/tv/${show.title.tmdbId}`)} style={styles.row}>
-      {rank ? <Text style={styles.rank}>{rank}</Text> : null}
+      {rank ? (
+        <Text style={styles.rank} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {rank}
+        </Text>
+      ) : null}
       <Poster uri={show.title.posterUrl} name={show.title.name} width={44} />
       <View style={{ flex: 1 }}>
         <Text style={styles.name} numberOfLines={1}>
@@ -36,7 +40,11 @@ export function SeasonScoreRow({ season, rank, showName = true }: { season: Seas
   const router = useRouter();
   return (
     <Pressable onPress={() => router.push(`/season/${season.tmdbId}/${season.seasonNumber}`)} style={styles.row}>
-      {rank ? <Text style={styles.rank}>{rank}</Text> : null}
+      {rank ? (
+        <Text style={styles.rank} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {rank}
+        </Text>
+      ) : null}
       {showName ? <Poster uri={season.posterUrl} name={season.showName} width={44} /> : null}
       <View style={{ flex: 1 }}>
         <Text style={styles.name} numberOfLines={1}>
@@ -60,7 +68,11 @@ export function EpisodeScoreRow({ episode, rank, onPress }: { episode: EpisodeEn
   const router = useRouter();
   return (
     <Pressable onPress={onPress ?? (() => router.push(`/season/${episode.tmdbId}/${episode.seasonNumber}`))} style={styles.row}>
-      {rank ? <Text style={styles.rank}>{rank}</Text> : null}
+      {rank ? (
+        <Text style={styles.rank} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {rank}
+        </Text>
+      ) : null}
       <Poster uri={episode.posterUrl} name={episode.showName} width={44} />
       <View style={{ flex: 1 }}>
         <Text style={styles.name} numberOfLines={1}>
@@ -86,7 +98,8 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     padding: 8,
   },
-  rank: { color: colors.muted, width: 22, textAlign: "center", fontWeight: "800" },
+  // Wide enough for three digits on one line; four or more shrink to fit instead of wrapping.
+  rank: { color: colors.muted, width: 30, textAlign: "center", fontWeight: "800", fontVariant: ["tabular-nums"] },
   name: { color: colors.text, fontWeight: "700" },
   meta: { color: colors.muted, fontSize: 12, marginTop: 2 },
 });
