@@ -48,6 +48,11 @@ export function startComparison(listLength: number): ComparisonState {
   return { lo: 0, hi: listLength, asked: 0 };
 }
 
+/** A comparison that only asks about the items from `lo` up to (not including) `hi`; the rest are known to be above or below. */
+export function startComparisonBetween(lo: number, hi: number): ComparisonState {
+  return { lo, hi: Math.max(lo, hi), asked: 0 };
+}
+
 export function isComparisonDone(state: ComparisonState): boolean {
   return state.lo >= state.hi;
 }
@@ -118,11 +123,31 @@ export function tierForScore(score: number): Tier {
 }
 
 /**
- * A Letterboxd star rating (½ to 5 stars) as an Encore reaction and score: the
- * stars doubled onto the 0–10 scale, in the tier that score falls in. So 3½★ and
- * up is "liked", 2–3★ is "fine", and 1½★ or less is "didn't like it".
+ * A Letterboxd or Goodreads star rating (½ to 5 stars) as an Encore reaction and
+ * a first guess at a score: the stars doubled onto the 0–10 scale, in the tier
+ * that score falls in. So 3½★ and up is "liked", 2–3★ is "fine", and 1½★ or less
+ * is "didn't like it". The guess only decides where an imported title starts in
+ * its list; its real score comes from its place there, like any other ranking.
  */
 export function scoreFromStars(stars: number): { tier: Tier; score: number } {
   const score = round1(Math.min(10, Math.max(0.5, stars) * 2));
   return { tier: tierForScore(score), score };
+}
+
+/**
+ * Where an imported title rated `stars` can go in a list (best → worst) without
+ * comparing it to anything you rated more or fewer stars: below the last title
+ * with more stars, above the first with fewer. `listStars` holds each title's
+ * imported stars, or null for one you ranked in Encore, which it's always
+ * compared against. If you've since moved titles out of star order, the range
+ * closes up rather than turning inside out.
+ */
+export function starBounds(stars: number, listStars: readonly (number | null)[]): { lo: number; hi: number } {
+  let lo = 0;
+  listStars.forEach((s, i) => {
+    if (s !== null && s > stars) lo = i + 1;
+  });
+  const below = listStars.findIndex((s) => s !== null && s < stars);
+  const hi = below < 0 ? listStars.length : below;
+  return { lo, hi: Math.max(lo, hi) };
 }

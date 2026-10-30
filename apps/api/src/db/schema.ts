@@ -151,6 +151,10 @@ export const titleEntries = pgTable(
     score: real("score").notNull(),
     /** Score you set with the slider (first titles in a list); null = derived from rank. */
     userScore: real("user_score"),
+    /** Stars it had on Letterboxd or Goodreads when imported; null if you ranked it in Encore. Keeps imports in star order. */
+    importStars: real("import_stars"),
+    /** Imported and not yet compared against the rest of its list. */
+    comparePending: boolean("compare_pending").notNull().default(false),
     favoriteEpisode: jsonb("favorite_episode").$type<EpisodeRef>(),
     leastFavoriteEpisode: jsonb("least_favorite_episode").$type<EpisodeRef>(),
     watchedAt: date("watched_at", { mode: "string" }),

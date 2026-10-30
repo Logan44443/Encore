@@ -528,6 +528,31 @@ export interface ImportCounts {
   unmatched: number;
 }
 
+/** An imported film or book waiting to be compared into its ranking list. */
+export interface ImportComparison {
+  entryId: string;
+  title: TitleSummary;
+  /** Its stars on the other site. */
+  stars: number;
+  genreId: number;
+  genreName: string;
+  tier: Tier;
+  /** The rest of its list, best → worst, leaving out anything else still waiting to be compared. */
+  candidates: RankCandidate[];
+  /**
+   * Only candidates from `lo` up to (not including) `hi` need asking about. The
+   * ones before have more stars and the ones after fewer, so their order is known.
+   */
+  lo: number;
+  hi: number;
+}
+
+export interface ImportCompareState {
+  /** Imported titles still waiting to be compared, including `next`. */
+  remaining: number;
+  next: ImportComparison | null;
+}
+
 export interface CatalogImport {
   status: "running" | "done" | "failed";
   /** Items processed so far, out of `total`. */

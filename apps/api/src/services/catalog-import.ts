@@ -346,12 +346,12 @@ async function applyItem(
   }
 
   if (!existing && film.rating !== null) {
-    const { tier, score } = scoreFromStars(film.rating);
+    const { tier } = scoreFromStars(film.rating);
     const when = noonUtc(film.watchedAt ?? film.loggedAt);
     const added = await serialize(`${importGenreFor(title)}:${tier}`, () =>
       importRatedEntry(userId, title, {
         tier,
-        score,
+        stars: film.rating!,
         watchedAt: film.watchedAt,
         review: film.review,
         createdAt: when && when.getTime() < Date.now() ? when : null,

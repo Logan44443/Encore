@@ -1,4 +1,4 @@
-import { importFixSchema, type ImportSource } from "@encore/shared";
+import { importCompareSchema, importFixSchema, type ImportSource } from "@encore/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
@@ -7,6 +7,7 @@ import { requireAuth, type AuthVars } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
 import { validate } from "../lib/validate";
 import { fixImportItem, getImport, startImport } from "../services/catalog-import";
+import { nextImportComparison, placeImportedEntry } from "../services/entries";
 
 /** A Letterboxd export ZIP is well under 1 MB for most people; heavy reviewers can reach a few. Goodreads' CSV is smaller. */
 const MAX_UPLOAD = 20 * 1024 * 1024;
@@ -14,6 +15,7 @@ const MAX_UPLOAD = 20 * 1024 * 1024;
 const sourceParam = validate("param", z.object({ source: z.enum(["letterboxd", "goodreads"] satisfies ImportSource[]) }));
 
 const SITE: Record<ImportSource, string> = { letterboxd: "Letterboxd", goodreads: "Goodreads" };
+const MEDIA: Record<ImportSource, "movie" | "book"> = { letterboxd: "movie", goodreads: "book" };
 
 export const importRoutes = new Hono<AuthVars>()
   .use(requireAuth)
@@ -38,4 +40,12 @@ export const importRoutes = new Hono<AuthVars>()
   .post("/:source/fix", sourceParam, validate("json", importFixSchema), async (c) => {
     const { key, tmdbId } = c.req.valid("json");
     return c.json({ import: await fixImportItem(c.get("userId"), c.req.valid("param").source, key, tmdbId) });
+  })
+  // Comparing imported titles against the rest of their list, one at a time.
+  .get("/:source/compare", sourceParam, async (c) =>
+    c.json(await nextImportComparison(c.get("userId"), MEDIA[c.req.valid("param").source])),
+  )
+  .post("/:source/compare", sourceParam, validate("json", importCompareSchema), async (c) => {
+    const { entryId, aboveEntryId } = c.req.valid("json");
+    return c.json(await placeImportedEntry(c.get("userId"), MEDIA[c.req.valid("param").source], entryId, aboveEntryId));
   });
